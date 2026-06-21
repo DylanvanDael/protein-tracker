@@ -27,15 +27,19 @@ export async function POST(request: NextRequest) {
           },
           {
             type: 'text',
-            text: `Analyze this nutrition label. Return ONLY a valid JSON object (no markdown, no extra text) with:
-- foodName: string (product name)
-- calories: number (kcal per 100g — convert from per serving if needed)
+            text: `Extract nutritional data from this image. The label may be in any language (Dutch, English, etc.).
+
+Dutch terms: Energie=calories, Eiwitten=protein, Vet=fat, Koolhydraten=carbohydrates, Voedingsvezel=fiber.
+
+Return ONLY a valid JSON object (no markdown, no extra text) with:
+- foodName: string (product name if visible, otherwise "Scanned Product")
+- calories: number (kcal per 100g — if only kJ shown, divide by 4.184)
 - proteinG: number (grams protein per 100g)
 - fatG: number (grams total fat per 100g)
 - carbsG: number (grams carbohydrates per 100g)
 - servingSize: number (serving size in grams, default 100 if not shown)
 
-All values must be per 100g. If no nutrition label is visible, return: {"error": "Could not extract nutritional information"}`,
+All values must be per 100g. Convert from per serving if needed. If no nutritional data is visible at all, return: {"error": "Could not extract nutritional information"}`,
           },
         ],
       }],

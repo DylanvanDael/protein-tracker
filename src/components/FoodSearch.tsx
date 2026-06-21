@@ -386,7 +386,6 @@ export default function FoodSearch({ date }: Props) {
           ref={photoInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }}
         />
