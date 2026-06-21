@@ -27,6 +27,7 @@ export default function FoodSearch({ date }: Props) {
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<FoodResult | null>(null)
+  const [customName, setCustomName] = useState('')
   const [servings, setServings] = useState(1)
   const [customGrams, setCustomGrams] = useState('')
   const [useCustomGrams, setUseCustomGrams] = useState(false)
@@ -252,6 +253,7 @@ export default function FoodSearch({ date }: Props) {
 
   function selectFood(food: FoodResult) {
     setSelected(food)
+    setCustomName(food.description)
     setServings(1)
     setCustomGrams(String(food.servingSize || 100))
     setUseCustomGrams(false)
@@ -277,7 +279,7 @@ export default function FoodSearch({ date }: Props) {
     setAdding(true)
     await addFoodEntry({
       date,
-      foodName: selected.description,
+      foodName: customName.trim() || selected.description,
       quantity: Math.round(totalGrams * 10) / 10,
       unit: selected.servingSizeUnit || 'g',
       calories: Math.round(selected.calories * ratio * 10) / 10,
@@ -316,7 +318,12 @@ export default function FoodSearch({ date }: Props) {
 
         <div className="px-4 py-4 space-y-4">
           <div>
-            <p className="text-[15px] font-semibold text-[#1C1C1E] leading-snug">{selected.description}</p>
+            <input
+              value={customName}
+              onChange={e => setCustomName(e.target.value)}
+              className="text-[15px] font-semibold text-[#1C1C1E] w-full bg-transparent outline-none border-b border-transparent focus:border-[#007AFF] pb-0.5 transition-colors"
+              placeholder="Product name"
+            />
             {selected.brandOwner && <p className="text-[13px] text-[#8E8E93] mt-0.5">{selected.brandOwner}</p>}
           </div>
 
