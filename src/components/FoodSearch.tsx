@@ -36,7 +36,7 @@ export default function FoodSearch({ date }: Props) {
   const [barcodeLoading, setBarcodeLoading] = useState(false)
   const [photoLoading, setPhotoLoading] = useState(false)
   const [photoError, setPhotoError] = useState('')
-  const [dragOver, setDragOver] = useState(false)
+  const [zoneDragOver, setZoneDragOver] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -45,21 +45,12 @@ export default function FoodSearch({ date }: Props) {
 
   const search = useCallback(async (q: string) => {
     abortRef.current?.abort()
-
-    if (q.trim().length < 2) {
-      setResults([])
-      setLoading(false)
-      return
-    }
-
+    if (q.trim().length < 2) { setResults([]); setLoading(false); return }
     abortRef.current = new AbortController()
     setLoading(true)
-    setResults([]) // clear stale results immediately
-
+    setResults([])
     try {
-      const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`, {
-        signal: abortRef.current.signal,
-      })
+      const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`, { signal: abortRef.current.signal })
       const data = await res.json()
       setResults(Array.isArray(data) ? data : [])
     } catch (e) {
@@ -74,6 +65,18 @@ export default function FoodSearch({ date }: Props) {
     debounceRef.current = setTimeout(() => search(query), 350)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, search])
+
+  // Clipboard paste — works on desktop and modern mobile browsers
+  useEffect(() => {
+    if (!open) return
+    function onPaste(e: ClipboardEvent) {
+      const item = Array.from(e.clipboardData?.items ?? []).find(i => i.type.startsWith('image/'))
+      const file = item?.getAsFile()
+      if (file) handlePhoto(file)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function openSearch() {
     setOpen(true)
@@ -102,10 +105,7 @@ export default function FoodSearch({ date }: Props) {
     setBarcodeError('')
     try {
       const res = await fetch(`/api/barcode?code=${encodeURIComponent(code)}`)
-      if (!res.ok) {
-        setBarcodeError('Product not found. Try searching by name.')
-        return
-      }
+      if (!res.ok) { setBarcodeError('Product not found. Try searching by name.'); return }
       const food: FoodResult = await res.json()
       selectFood(food)
     } catch {
@@ -121,13 +121,8 @@ export default function FoodSearch({ date }: Props) {
       img.onload = () => {
         const maxSize = 800
         let { width, height } = img
-        if (width > height && width > maxSize) {
-          height = Math.round((height * maxSize) / width)
-          width = maxSize
-        } else if (height > maxSize) {
-          width = Math.round((width * maxSize) / height)
-          height = maxSize
-        }
+        if (width > height && width > maxSize) { height = Math.round((height * maxSize) / width); width = maxSize }
+        else if (height > maxSize) { width = Math.round((width * maxSize) / height); height = maxSize }
         const canvas = document.createElement('canvas')
         canvas.width = width
         canvas.height = height
@@ -165,7 +160,6 @@ export default function FoodSearch({ date }: Props) {
   }
 
   function selectFood(food: FoodResult) {
-    // Preserve query and results so Back restores them instantly
     setSelected(food)
     setServings(1)
     setCustomGrams(String(food.servingSize || 100))
@@ -180,15 +174,11 @@ export default function FoodSearch({ date }: Props) {
   }
 
   const ratio = selected
-    ? useCustomGrams
-      ? (parseFloat(customGrams) || 0) / (selected.servingSize || 100)
-      : servings
+    ? useCustomGrams ? (parseFloat(customGrams) || 0) / (selected.servingSize || 100) : servings
     : 0
 
   const totalGrams = selected
-    ? useCustomGrams
-      ? parseFloat(customGrams) || 0
-      : servings * (selected.servingSize || 100)
+    ? useCustomGrams ? parseFloat(customGrams) || 0 : servings * (selected.servingSize || 100)
     : 0
 
   async function handleAdd() {
@@ -224,34 +214,26 @@ export default function FoodSearch({ date }: Props) {
   if (selected) {
     return (
       <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
-        {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#F2F2F7]">
           <button onClick={goBack} className="text-[#007AFF] flex items-center gap-0.5 -ml-1">
             <ChevronLeft size={20} strokeWidth={2} />
             <span className="text-[15px]">Back</span>
           </button>
           <div className="flex-1" />
-          <button onClick={dismiss} className="text-[#8E8E93]">
-            <X size={18} />
-          </button>
+          <button onClick={dismiss} className="text-[#8E8E93]"><X size={18} /></button>
         </div>
 
         <div className="px-4 py-4 space-y-4">
-          {/* Food name */}
           <div>
             <p className="text-[15px] font-semibold text-[#1C1C1E] leading-snug">{selected.description}</p>
-            {selected.brandOwner && (
-              <p className="text-[13px] text-[#8E8E93] mt-0.5">{selected.brandOwner}</p>
-            )}
+            {selected.brandOwner && <p className="text-[13px] text-[#8E8E93] mt-0.5">{selected.brandOwner}</p>}
           </div>
 
           {!useCustomGrams ? (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-[#6C6C70]">Servings</span>
-                <span className="text-[12px] text-[#8E8E93]">
-                  1 serving = {selected.servingSize}{selected.servingSizeUnit}
-                </span>
+                <span className="text-[12px] text-[#8E8E93]">1 serving = {selected.servingSize}{selected.servingSizeUnit}</span>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -282,9 +264,7 @@ export default function FoodSearch({ date }: Props) {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-[#6C6C70]">Amount (g)</span>
-                <button onClick={() => setUseCustomGrams(false)} className="text-[12px] text-[#007AFF]">
-                  Use servings
-                </button>
+                <button onClick={() => setUseCustomGrams(false)} className="text-[12px] text-[#007AFF]">Use servings</button>
               </div>
               <input
                 autoFocus
@@ -330,35 +310,18 @@ export default function FoodSearch({ date }: Props) {
   if (scanning) {
     return (
       <div className="space-y-3">
-        <BarcodeScanner
-          onDetected={handleBarcode}
-          onClose={() => setScanning(false)}
-        />
+        <BarcodeScanner onDetected={handleBarcode} onClose={() => setScanning(false)} />
       </div>
     )
   }
 
   // ── Search view ───────────────────────────────────────────────────────────
-  return (
-    <div
-      className={`bg-white rounded-3xl shadow-sm border overflow-hidden transition-colors ${dragOver ? 'border-[#007AFF] bg-[#F0F7FF]' : 'border-[#E5E5EA]'}`}
-      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false) }}
-      onDrop={e => {
-        e.preventDefault()
-        setDragOver(false)
-        const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'))
-        if (file) handlePhoto(file)
-      }}
-    >
-      {dragOver && (
-        <div className="px-4 py-6 text-center pointer-events-none">
-          <Camera size={24} className="text-[#007AFF] mx-auto mb-1.5" />
-          <p className="text-[14px] font-medium text-[#007AFF]">Drop to scan nutrition label</p>
-        </div>
-      )}
+  const showUploadZone = query.length === 0 && !photoLoading && !barcodeLoading && results.length === 0
 
-      <div className={`flex items-center gap-2 px-4 py-3 ${dragOver ? 'hidden' : ''}`}>
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
+      {/* Search bar */}
+      <div className="flex items-center gap-2 px-4 py-3">
         <Search size={16} className="text-[#8E8E93] shrink-0" />
         <input
           ref={inputRef}
@@ -374,14 +337,17 @@ export default function FoodSearch({ date }: Props) {
         >
           <Scan size={18} />
         </button>
-        <button
-          onClick={() => photoInputRef.current?.click()}
-          disabled={photoLoading}
-          className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7] transition-colors disabled:opacity-40"
-          title="Scan nutrition label"
-        >
-          <Camera size={18} />
-        </button>
+        {/* Camera button: visible when typing (no upload zone visible) */}
+        {query.length > 0 && (
+          <button
+            onClick={() => photoInputRef.current?.click()}
+            disabled={photoLoading}
+            className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7] transition-colors disabled:opacity-40"
+            title="Scan nutrition label"
+          >
+            <Camera size={18} />
+          </button>
+        )}
         <input
           ref={photoInputRef}
           type="file"
@@ -390,10 +356,7 @@ export default function FoodSearch({ date }: Props) {
           onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }}
         />
         {query.length > 0 ? (
-          <button
-            onClick={() => { setQuery(''); setResults([]) }}
-            className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors"
-          >
+          <button onClick={() => { setQuery(''); setResults([]) }} className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors">
             <X size={18} />
           </button>
         ) : (
@@ -402,6 +365,42 @@ export default function FoodSearch({ date }: Props) {
           </button>
         )}
       </div>
+
+      {/* Upload zone — tap, drag & drop, or paste */}
+      {showUploadZone && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Upload nutrition label photo"
+          onClick={() => photoInputRef.current?.click()}
+          onKeyDown={e => e.key === 'Enter' && photoInputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setZoneDragOver(true) }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setZoneDragOver(false) }}
+          onDrop={e => {
+            e.preventDefault()
+            setZoneDragOver(false)
+            const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'))
+            if (file) handlePhoto(file)
+          }}
+          className={`mx-3 mb-3 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 py-6 cursor-pointer select-none transition-colors ${
+            zoneDragOver ? 'border-[#007AFF] bg-[#EBF4FF]' : 'border-[#D1D1D6] active:bg-[#F2F2F7]'
+          }`}
+        >
+          <Camera size={22} className={zoneDragOver ? 'text-[#007AFF]' : 'text-[#8E8E93]'} />
+          <p className={`text-[13px] font-medium ${zoneDragOver ? 'text-[#007AFF]' : 'text-[#8E8E93]'}`}>
+            {zoneDragOver ? 'Drop to scan' : 'Tap to scan a nutrition label'}
+          </p>
+          <p className="text-[11px] text-[#C7C7CC]">or drag & drop · paste from clipboard</p>
+        </div>
+      )}
+
+      {/* Photo loading */}
+      {photoLoading && (
+        <div className="mx-3 mb-3 rounded-2xl border-2 border-dashed border-[#007AFF] bg-[#EBF4FF] flex flex-col items-center justify-center gap-1.5 py-6">
+          <Camera size={22} className="text-[#007AFF] animate-pulse" />
+          <p className="text-[13px] font-medium text-[#007AFF]">Reading nutrition label…</p>
+        </div>
+      )}
 
       {barcodeLoading && (
         <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
@@ -413,12 +412,6 @@ export default function FoodSearch({ date }: Props) {
         <div className="px-4 pb-3 border-t border-[#F2F2F7] pt-3 flex items-center justify-between">
           <p className="text-[13px] text-[#FF453A]">{barcodeError}</p>
           <button onClick={() => setBarcodeError('')} className="text-[#8E8E93]"><X size={14} /></button>
-        </div>
-      )}
-
-      {photoLoading && (
-        <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
-          Reading nutrition label…
         </div>
       )}
 
@@ -443,12 +436,8 @@ export default function FoodSearch({ date }: Props) {
                 onClick={() => selectFood(food)}
                 className="w-full text-left px-4 py-3 hover:bg-[#F9F9F9] active:bg-[#F2F2F7] transition-colors"
               >
-                <p className="text-[14px] font-medium text-[#1C1C1E] leading-snug line-clamp-1">
-                  {food.description}
-                </p>
-                {food.brandOwner && (
-                  <p className="text-[12px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>
-                )}
+                <p className="text-[14px] font-medium text-[#1C1C1E] leading-snug line-clamp-1">{food.description}</p>
+                {food.brandOwner && <p className="text-[12px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>}
                 <p className="text-[12px] text-[#8E8E93] mt-0.5">
                   per serving ({food.servingSize}{food.servingSizeUnit}) · {Math.round(food.calories)} kcal · {Math.round(food.proteinG)}g protein
                 </p>
