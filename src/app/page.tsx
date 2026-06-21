@@ -1,11 +1,10 @@
 import { Suspense } from 'react'
-import { getEntriesForDate } from '@/lib/actions'
+import { getEntriesForDate, getGoals } from '@/lib/actions'
 import MacroRing from '@/components/MacroRing'
 import FoodSearch from '@/components/FoodSearch'
 import EntryRow from '@/components/EntryRow'
 import DateNav from '@/components/DateNav'
-
-const GOALS = { calories: 2000, protein: 150, carbs: 200, fat: 65 }
+import GoalSettings from '@/components/GoalSettings'
 
 function todayString() {
   const d = new Date()
@@ -19,7 +18,14 @@ interface PageProps {
 export default async function Home({ searchParams }: PageProps) {
   const { date: dateParam } = await searchParams
   const date = dateParam ?? todayString()
-  const entries = await getEntriesForDate(date)
+  const [entries, goalRow] = await Promise.all([getEntriesForDate(date), getGoals()])
+
+  const GOALS = {
+    calories: goalRow.calories,
+    protein: goalRow.proteinG,
+    carbs: goalRow.carbsG,
+    fat: goalRow.fatG,
+  }
 
   const totals = entries.reduce(
     (acc, e) => ({
@@ -51,16 +57,15 @@ export default async function Home({ searchParams }: PageProps) {
               <p className="text-[36px] font-bold text-[#1C1C1E] leading-none mt-1">
                 {Math.round(totals.calories)}
               </p>
-              <p className="text-[13px] text-[#8E8E93] mt-1">of {GOALS.calories} kcal goal</p>
+              <p className="text-[13px] text-[#8E8E93] mt-1">of {Math.round(GOALS.calories)} kcal goal</p>
             </div>
             <div className="text-right">
               <p className="text-[13px] text-[#8E8E93]">Remaining</p>
               <p className="text-[22px] font-semibold text-[#007AFF]">
-                {Math.max(0, GOALS.calories - Math.round(totals.calories))}
+                {Math.max(0, Math.round(GOALS.calories - totals.calories))}
               </p>
             </div>
           </div>
-          {/* Progress bar */}
           <div className="h-2 bg-[#E5E5EA] rounded-full overflow-hidden">
             <div
               className="h-full bg-[#007AFF] rounded-full transition-all duration-500"
@@ -126,6 +131,10 @@ export default async function Home({ searchParams }: PageProps) {
         <Suspense fallback={null}>
           <FoodSearch date={date} />
         </Suspense>
+
+        {/* Goal settings */}
+        <GoalSettings initialGoals={goalRow} />
+
       </div>
     </main>
   )
