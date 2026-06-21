@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Plus, X, Minus, ChevronLeft, Scan } from 'lucide-react'
+import { Search, Plus, X, Minus, ChevronLeft, Scan, Camera } from 'lucide-react'
 import { addFoodEntry } from '@/lib/actions'
 import BarcodeScanner from './BarcodeScanner'
 
@@ -34,8 +34,11 @@ export default function FoodSearch({ date }: Props) {
   const [scanning, setScanning] = useState(false)
   const [barcodeError, setBarcodeError] = useState('')
   const [barcodeLoading, setBarcodeLoading] = useState(false)
+  const [photoLoading, setPhotoLoading] = useState(false)
+  const [photoError, setPhotoError] = useState('')
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -88,6 +91,8 @@ export default function FoodSearch({ date }: Props) {
     setScanning(false)
     setBarcodeError('')
     setBarcodeLoading(false)
+    setPhotoLoading(false)
+    setPhotoError('')
   }
 
   async function handleBarcode(code: string) {
@@ -106,6 +111,55 @@ export default function FoodSearch({ date }: Props) {
       setBarcodeError('Could not look up product. Try searching by name.')
     } finally {
       setBarcodeLoading(false)
+    }
+  }
+
+  function compressImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const maxSize = 800
+        let { width, height } = img
+        if (width > height && width > maxSize) {
+          height = Math.round((height * maxSize) / width)
+          width = maxSize
+        } else if (height > maxSize) {
+          width = Math.round((width * maxSize) / height)
+          height = maxSize
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1])
+        URL.revokeObjectURL(img.src)
+      }
+      img.onerror = reject
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  async function handlePhoto(file: File) {
+    setPhotoLoading(true)
+    setPhotoError('')
+    try {
+      const base64 = await compressImage(file)
+      const res = await fetch('/api/nutrition-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mimeType: 'image/jpeg' }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setPhotoError(data.error || 'Could not read nutrition label. Try a clearer photo.')
+        return
+      }
+      selectFood(data)
+    } catch {
+      setPhotoError('Failed to process image. Please try again.')
+    } finally {
+      setPhotoLoading(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
     }
   }
 
@@ -302,6 +356,22 @@ export default function FoodSearch({ date }: Props) {
         >
           <Scan size={18} />
         </button>
+        <button
+          onClick={() => photoInputRef.current?.click()}
+          disabled={photoLoading}
+          className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7] transition-colors disabled:opacity-40"
+          title="Scan nutrition label"
+        >
+          <Camera size={18} />
+        </button>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }}
+        />
         {query.length > 0 ? (
           <button
             onClick={() => { setQuery(''); setResults([]) }}
@@ -326,6 +396,19 @@ export default function FoodSearch({ date }: Props) {
         <div className="px-4 pb-3 border-t border-[#F2F2F7] pt-3 flex items-center justify-between">
           <p className="text-[13px] text-[#FF453A]">{barcodeError}</p>
           <button onClick={() => setBarcodeError('')} className="text-[#8E8E93]"><X size={14} /></button>
+        </div>
+      )}
+
+      {photoLoading && (
+        <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
+          Reading nutrition label…
+        </div>
+      )}
+
+      {photoError && !photoLoading && (
+        <div className="px-4 pb-3 border-t border-[#F2F2F7] pt-3 flex items-center justify-between">
+          <p className="text-[13px] text-[#FF453A]">{photoError}</p>
+          <button onClick={() => setPhotoError('')} className="text-[#8E8E93]"><X size={14} /></button>
         </div>
       )}
 

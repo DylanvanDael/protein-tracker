@@ -12,7 +12,9 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@neondatabase/serverless": "^1.1.0",
+    "@zxing/browser": "^0.2.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
