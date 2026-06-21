@@ -36,6 +36,7 @@ export default function FoodSearch({ date }: Props) {
   const [barcodeLoading, setBarcodeLoading] = useState(false)
   const [photoLoading, setPhotoLoading] = useState(false)
   const [photoError, setPhotoError] = useState('')
+  const [dragOver, setDragOver] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -339,8 +340,25 @@ export default function FoodSearch({ date }: Props) {
 
   // ── Search view ───────────────────────────────────────────────────────────
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3">
+    <div
+      className={`bg-white rounded-3xl shadow-sm border overflow-hidden transition-colors ${dragOver ? 'border-[#007AFF] bg-[#F0F7FF]' : 'border-[#E5E5EA]'}`}
+      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false) }}
+      onDrop={e => {
+        e.preventDefault()
+        setDragOver(false)
+        const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'))
+        if (file) handlePhoto(file)
+      }}
+    >
+      {dragOver && (
+        <div className="px-4 py-6 text-center pointer-events-none">
+          <Camera size={24} className="text-[#007AFF] mx-auto mb-1.5" />
+          <p className="text-[14px] font-medium text-[#007AFF]">Drop to scan nutrition label</p>
+        </div>
+      )}
+
+      <div className={`flex items-center gap-2 px-4 py-3 ${dragOver ? 'hidden' : ''}`}>
         <Search size={16} className="text-[#8E8E93] shrink-0" />
         <input
           ref={inputRef}
