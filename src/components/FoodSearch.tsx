@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Plus, X, Minus } from 'lucide-react'
+import { Search, Plus, X, Minus, ChevronLeft } from 'lucide-react'
 import { addFoodEntry } from '@/lib/actions'
 
 interface FoodResult {
@@ -21,6 +21,7 @@ interface Props {
 }
 
 export default function FoodSearch({ date }: Props) {
+  const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -29,17 +30,32 @@ export default function FoodSearch({ date }: Props) {
   const [customGrams, setCustomGrams] = useState('')
   const [useCustomGrams, setUseCustomGrams] = useState(false)
   const [adding, setAdding] = useState(false)
-  const [open, setOpen] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const inputRef = useRef<HTMLInputElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const search = useCallback(async (q: string) => {
-    if (q.trim().length < 2) { setResults([]); return }
+    abortRef.current?.abort()
+
+    if (q.trim().length < 2) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+
+    abortRef.current = new AbortController()
     setLoading(true)
+    setResults([]) // clear stale results immediately
+
     try {
-      const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`)
+      const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`, {
+        signal: abortRef.current.signal,
+      })
       const data = await res.json()
       setResults(Array.isArray(data) ? data : [])
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') setResults([])
     } finally {
       setLoading(false)
     }
@@ -51,16 +67,37 @@ export default function FoodSearch({ date }: Props) {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query, search])
 
+  function openSearch() {
+    setOpen(true)
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  function dismiss() {
+    abortRef.current?.abort()
+    setOpen(false)
+    setQuery('')
+    setResults([])
+    setSelected(null)
+    setServings(1)
+    setCustomGrams('')
+    setUseCustomGrams(false)
+  }
+
   function selectFood(food: FoodResult) {
+    // Preserve query and results so Back restores them instantly
     setSelected(food)
     setServings(1)
     setCustomGrams(String(food.servingSize || 100))
     setUseCustomGrams(false)
-    setResults([])
-    setQuery('')
   }
 
-  // ratio: servings × servingSize gives total grams, nutrients are per servingSize
+  function goBack() {
+    setSelected(null)
+    setServings(1)
+    setUseCustomGrams(false)
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   const ratio = selected
     ? useCustomGrams
       ? (parseFloat(customGrams) || 0) / (selected.servingSize || 100)
@@ -86,28 +123,14 @@ export default function FoodSearch({ date }: Props) {
       fatG: Math.round(selected.fatG * ratio * 10) / 10,
       carbsG: Math.round(selected.carbsG * ratio * 10) / 10,
     })
-    setSelected(null)
-    setServings(1)
-    setCustomGrams('')
-    setUseCustomGrams(false)
-    setOpen(false)
+    dismiss()
     setAdding(false)
-  }
-
-  function dismiss() {
-    setOpen(false)
-    setSelected(null)
-    setQuery('')
-    setResults([])
-    setServings(1)
-    setCustomGrams('')
-    setUseCustomGrams(false)
   }
 
   if (!open) {
     return (
       <button
-        onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
+        onClick={openSearch}
         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#007AFF] text-white font-semibold text-[15px] active:opacity-80 transition-opacity shadow-sm"
       >
         <Plus size={18} strokeWidth={2.5} />
@@ -116,53 +139,22 @@ export default function FoodSearch({ date }: Props) {
     )
   }
 
-  return (
-    <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
-      {/* Search bar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#F2F2F7]">
-        <Search size={16} className="text-[#8E8E93] shrink-0" />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={e => { setQuery(e.target.value); setSelected(null) }}
-          placeholder="Search food..."
-          className="flex-1 text-[15px] text-[#1C1C1E] placeholder:text-[#C7C7CC] outline-none bg-transparent"
-        />
-        <button onClick={dismiss} className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors">
-          <X size={18} />
-        </button>
-      </div>
+  // ── Detail view ───────────────────────────────────────────────────────────
+  if (selected) {
+    return (
+      <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#F2F2F7]">
+          <button onClick={goBack} className="text-[#007AFF] flex items-center gap-0.5 -ml-1">
+            <ChevronLeft size={20} strokeWidth={2} />
+            <span className="text-[15px]">Back</span>
+          </button>
+          <div className="flex-1" />
+          <button onClick={dismiss} className="text-[#8E8E93]">
+            <X size={18} />
+          </button>
+        </div>
 
-      {loading && (
-        <div className="px-4 py-3 text-[14px] text-[#8E8E93]">Searching...</div>
-      )}
-
-      {/* Results list */}
-      {results.length > 0 && !selected && (
-        <ul className="divide-y divide-[#F2F2F7] max-h-64 overflow-y-auto">
-          {results.map(food => (
-            <li key={food.fdcId}>
-              <button
-                onClick={() => selectFood(food)}
-                className="w-full text-left px-4 py-3 hover:bg-[#F9F9F9] transition-colors"
-              >
-                <p className="text-[14px] font-medium text-[#1C1C1E] leading-snug line-clamp-1">
-                  {food.description}
-                </p>
-                {food.brandOwner && (
-                  <p className="text-[12px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>
-                )}
-                <p className="text-[12px] text-[#8E8E93] mt-0.5">
-                  per serving ({food.servingSize}{food.servingSizeUnit}) · {Math.round(food.calories)} kcal · {Math.round(food.proteinG)}g protein
-                </p>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Quantity picker */}
-      {selected && (
         <div className="px-4 py-4 space-y-4">
           {/* Food name */}
           <div>
@@ -173,7 +165,6 @@ export default function FoodSearch({ date }: Props) {
           </div>
 
           {!useCustomGrams ? (
-            /* Servings stepper */
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-[#6C6C70]">Servings</span>
@@ -201,20 +192,16 @@ export default function FoodSearch({ date }: Props) {
               </div>
               <button
                 onClick={() => { setUseCustomGrams(true); setCustomGrams(String(Math.round(totalGrams))) }}
-                className="text-[12px] text-[#007AFF] mt-1"
+                className="text-[12px] text-[#007AFF]"
               >
                 Enter custom amount in grams
               </button>
             </div>
           ) : (
-            /* Custom grams input */
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-[#6C6C70]">Amount (g)</span>
-                <button
-                  onClick={() => setUseCustomGrams(false)}
-                  className="text-[12px] text-[#007AFF]"
-                >
+                <button onClick={() => setUseCustomGrams(false)} className="text-[12px] text-[#007AFF]">
                   Use servings
                 </button>
               </div>
@@ -229,7 +216,6 @@ export default function FoodSearch({ date }: Props) {
             </div>
           )}
 
-          {/* Macro preview */}
           {ratio > 0 && (
             <div className="grid grid-cols-4 gap-2 bg-[#F2F2F7] rounded-2xl px-3 py-3">
               {[
@@ -247,22 +233,76 @@ export default function FoodSearch({ date }: Props) {
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setSelected(null); setQuery(''); setServings(1); setUseCustomGrams(false) }}
-              className="flex-1 py-3 rounded-2xl bg-[#F2F2F7] text-[#1C1C1E] font-semibold text-[15px] active:opacity-70 transition-opacity"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleAdd}
-              disabled={adding || ratio <= 0}
-              className="flex-1 py-3 rounded-2xl bg-[#007AFF] text-white font-semibold text-[15px] active:opacity-80 transition-opacity disabled:opacity-40"
-            >
-              {adding ? 'Adding...' : 'Add'}
-            </button>
-          </div>
+          <button
+            onClick={handleAdd}
+            disabled={adding || ratio <= 0}
+            className="w-full py-3 rounded-2xl bg-[#007AFF] text-white font-semibold text-[15px] active:opacity-80 transition-opacity disabled:opacity-40"
+          >
+            {adding ? 'Adding...' : 'Add to Log'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Search view ───────────────────────────────────────────────────────────
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Search size={16} className="text-[#8E8E93] shrink-0" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search food..."
+          className="flex-1 text-[15px] text-[#1C1C1E] placeholder:text-[#C7C7CC] outline-none bg-transparent"
+        />
+        {query.length > 0 ? (
+          <button
+            onClick={() => { setQuery(''); setResults([]) }}
+            className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors"
+          >
+            <X size={18} />
+          </button>
+        ) : (
+          <button onClick={dismiss} className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors">
+            <X size={18} />
+          </button>
+        )}
+      </div>
+
+      {loading && (
+        <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
+          Searching...
+        </div>
+      )}
+
+      {!loading && results.length > 0 && (
+        <ul className="divide-y divide-[#F2F2F7] max-h-72 overflow-y-auto border-t border-[#F2F2F7]">
+          {results.map(food => (
+            <li key={food.fdcId}>
+              <button
+                onClick={() => selectFood(food)}
+                className="w-full text-left px-4 py-3 hover:bg-[#F9F9F9] active:bg-[#F2F2F7] transition-colors"
+              >
+                <p className="text-[14px] font-medium text-[#1C1C1E] leading-snug line-clamp-1">
+                  {food.description}
+                </p>
+                {food.brandOwner && (
+                  <p className="text-[12px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>
+                )}
+                <p className="text-[12px] text-[#8E8E93] mt-0.5">
+                  per serving ({food.servingSize}{food.servingSizeUnit}) · {Math.round(food.calories)} kcal · {Math.round(food.proteinG)}g protein
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {!loading && query.trim().length >= 2 && results.length === 0 && (
+        <div className="px-4 py-4 text-[14px] text-[#8E8E93] text-center border-t border-[#F2F2F7]">
+          No results for &ldquo;{query}&rdquo;
         </div>
       )}
     </div>
