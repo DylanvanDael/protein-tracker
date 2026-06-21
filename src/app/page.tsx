@@ -50,29 +50,38 @@ export default async function Home({ searchParams }: PageProps) {
         </div>
 
         {/* Calorie card */}
-        <div className="bg-white rounded-3xl px-5 py-5 shadow-sm border border-[#E5E5EA]">
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="text-[13px] font-medium text-[#8E8E93] uppercase tracking-wide">Calories</p>
-              <p className="text-[36px] font-bold text-[#1C1C1E] leading-none mt-1">
-                {Math.round(totals.calories)}
-              </p>
-              <p className="text-[13px] text-[#8E8E93] mt-1">of {Math.round(GOALS.calories)} kcal goal</p>
+        {(() => {
+          const calDiff = Math.round(totals.calories - GOALS.calories)
+          const calOver = calDiff > 0
+          const pct = Math.min((totals.calories / GOALS.calories) * 100, 100)
+          return (
+            <div className={`bg-white rounded-3xl px-5 py-5 shadow-sm border transition-colors ${calOver ? 'border-[#FF453A]/30' : 'border-[#E5E5EA]'}`}>
+              <div className="flex items-end justify-between mb-4">
+                <div>
+                  <p className="text-[13px] font-medium text-[#8E8E93] uppercase tracking-wide">Calories</p>
+                  <p className="text-[36px] font-bold text-[#1C1C1E] leading-none mt-1">
+                    {Math.round(totals.calories)}
+                  </p>
+                  <p className="text-[13px] text-[#8E8E93] mt-1">of {Math.round(GOALS.calories)} kcal goal</p>
+                </div>
+                <div className="text-right">
+                  <p className={`text-[13px] font-medium ${calOver ? 'text-[#FF453A]' : 'text-[#8E8E93]'}`}>
+                    {calOver ? 'Over goal' : 'Remaining'}
+                  </p>
+                  <p className={`text-[22px] font-semibold ${calOver ? 'text-[#FF453A]' : 'text-[#007AFF]'}`}>
+                    {calOver ? `+${calDiff}` : Math.abs(calDiff)}
+                  </p>
+                </div>
+              </div>
+              <div className="h-2 bg-[#E5E5EA] rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${calOver ? 'bg-[#FF453A]' : 'bg-[#007AFF]'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[13px] text-[#8E8E93]">Remaining</p>
-              <p className="text-[22px] font-semibold text-[#007AFF]">
-                {Math.max(0, Math.round(GOALS.calories - totals.calories))}
-              </p>
-            </div>
-          </div>
-          <div className="h-2 bg-[#E5E5EA] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#007AFF] rounded-full transition-all duration-500"
-              style={{ width: `${Math.min((totals.calories / GOALS.calories) * 100, 100)}%` }}
-            />
-          </div>
-        </div>
+          )
+        })()}
 
         {/* Macro rings */}
         <div className="bg-white rounded-3xl px-5 py-5 shadow-sm border border-[#E5E5EA]">
@@ -82,25 +91,49 @@ export default async function Home({ searchParams }: PageProps) {
             <MacroRing value={totals.carbs} goal={GOALS.carbs} color="#FF9F0A" label="Carbs" />
             <MacroRing value={totals.fat} goal={GOALS.fat} color="#FF453A" label="Fat" />
           </div>
-          <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-[#F2F2F7]">
-            {[
-              { label: 'Goal', protein: GOALS.protein, carbs: GOALS.carbs, fat: GOALS.fat },
-              { label: 'Eaten', protein: totals.protein, carbs: totals.carbs, fat: totals.fat },
-              {
-                label: 'Left',
-                protein: Math.max(0, GOALS.protein - totals.protein),
-                carbs: Math.max(0, GOALS.carbs - totals.carbs),
-                fat: Math.max(0, GOALS.fat - totals.fat),
-              },
-            ].map(row => (
-              <div key={row.label} className="text-center">
-                <p className="text-[11px] text-[#8E8E93] font-medium mb-1">{row.label}</p>
-                <p className="text-[12px] text-[#34C759] font-semibold">{Math.round(row.protein)}g P</p>
-                <p className="text-[12px] text-[#FF9F0A] font-semibold">{Math.round(row.carbs)}g C</p>
-                <p className="text-[12px] text-[#FF453A] font-semibold">{Math.round(row.fat)}g F</p>
+          {(() => {
+            const diff = {
+              protein: Math.round(totals.protein - GOALS.protein),
+              carbs:   Math.round(totals.carbs   - GOALS.carbs),
+              fat:     Math.round(totals.fat      - GOALS.fat),
+            }
+            const macros = [
+              { key: 'protein', label: 'P', color: '#34C759' },
+              { key: 'carbs',   label: 'C', color: '#FF9F0A' },
+              { key: 'fat',     label: 'F', color: '#FF453A' },
+            ] as const
+            return (
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-[#F2F2F7]">
+                {[
+                  { label: 'Goal',  protein: GOALS.protein,   carbs: GOALS.carbs,   fat: GOALS.fat },
+                  { label: 'Eaten', protein: totals.protein,  carbs: totals.carbs,  fat: totals.fat },
+                ].map(row => (
+                  <div key={row.label} className="text-center">
+                    <p className="text-[11px] text-[#8E8E93] font-medium mb-1">{row.label}</p>
+                    {macros.map(m => (
+                      <p key={m.key} className="text-[12px] font-semibold" style={{ color: m.color }}>
+                        {Math.round(row[m.key])}g {m.label}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+                <div className="text-center">
+                  <p className="text-[11px] text-[#8E8E93] font-medium mb-1">
+                    {Object.values(diff).some(d => d > 0) ? 'Over' : 'Left'}
+                  </p>
+                  {macros.map(m => {
+                    const d = diff[m.key]
+                    const over = d > 0
+                    return (
+                      <p key={m.key} className="text-[12px] font-semibold" style={{ color: over ? '#FF453A' : m.color }}>
+                        {over ? `+${d}` : Math.abs(d)}g {m.label}
+                      </p>
+                    )
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })()}
         </div>
 
         {/* Food log */}
