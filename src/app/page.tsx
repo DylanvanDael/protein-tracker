@@ -55,7 +55,7 @@ export default async function Home({ searchParams }: PageProps) {
           const calOver = calDiff > 0
           const pct = Math.min((totals.calories / GOALS.calories) * 100, 100)
           return (
-            <div className={`bg-white rounded-3xl px-5 py-5 shadow-sm border transition-colors ${calOver ? 'border-[#FF453A]/30' : 'border-[#E5E5EA]'}`}>
+            <div className="bg-white rounded-3xl px-5 py-5 shadow-sm border border-[#E5E5EA]">
               <div className="flex items-end justify-between mb-4">
                 <div>
                   <p className="text-[13px] font-medium text-[#8E8E93] uppercase tracking-wide">Calories</p>
@@ -65,17 +65,17 @@ export default async function Home({ searchParams }: PageProps) {
                   <p className="text-[13px] text-[#8E8E93] mt-1">of {Math.round(GOALS.calories)} kcal goal</p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-[13px] font-medium ${calOver ? 'text-[#FF453A]' : 'text-[#8E8E93]'}`}>
+                  <p className="text-[13px] text-[#8E8E93]">
                     {calOver ? 'Over goal' : 'Remaining'}
                   </p>
-                  <p className={`text-[22px] font-semibold ${calOver ? 'text-[#FF453A]' : 'text-[#007AFF]'}`}>
+                  <p className="text-[22px] font-semibold text-[#007AFF]">
                     {calOver ? `+${calDiff}` : Math.abs(calDiff)}
                   </p>
                 </div>
               </div>
               <div className="h-2 bg-[#E5E5EA] rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${calOver ? 'bg-[#FF453A]' : 'bg-[#007AFF]'}`}
+                  className="h-full bg-[#007AFF] rounded-full transition-all duration-500"
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -125,7 +125,7 @@ export default async function Home({ searchParams }: PageProps) {
                     const d = diff[m.key]
                     const over = d > 0
                     return (
-                      <p key={m.key} className="text-[12px] font-semibold" style={{ color: over ? '#FF453A' : m.color }}>
+                      <p key={m.key} className="text-[12px] font-semibold" style={{ color: m.color }}>
                         {over ? `+${d}` : Math.abs(d)}g {m.label}
                       </p>
                     )
