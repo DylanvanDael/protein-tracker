@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Plus, X, Minus, ChevronLeft } from 'lucide-react'
+import { Search, Plus, X, Minus, ChevronLeft, Scan } from 'lucide-react'
 import { addFoodEntry } from '@/lib/actions'
+import BarcodeScanner from './BarcodeScanner'
 
 interface FoodResult {
   fdcId: number
@@ -30,6 +31,9 @@ export default function FoodSearch({ date }: Props) {
   const [customGrams, setCustomGrams] = useState('')
   const [useCustomGrams, setUseCustomGrams] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [barcodeError, setBarcodeError] = useState('')
+  const [barcodeLoading, setBarcodeLoading] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -81,6 +85,28 @@ export default function FoodSearch({ date }: Props) {
     setServings(1)
     setCustomGrams('')
     setUseCustomGrams(false)
+    setScanning(false)
+    setBarcodeError('')
+    setBarcodeLoading(false)
+  }
+
+  async function handleBarcode(code: string) {
+    setScanning(false)
+    setBarcodeLoading(true)
+    setBarcodeError('')
+    try {
+      const res = await fetch(`/api/barcode?code=${encodeURIComponent(code)}`)
+      if (!res.ok) {
+        setBarcodeError('Product not found. Try searching by name.')
+        return
+      }
+      const food: FoodResult = await res.json()
+      selectFood(food)
+    } catch {
+      setBarcodeError('Could not look up product. Try searching by name.')
+    } finally {
+      setBarcodeLoading(false)
+    }
   }
 
   function selectFood(food: FoodResult) {
@@ -245,10 +271,22 @@ export default function FoodSearch({ date }: Props) {
     )
   }
 
+  // ── Scanner view ──────────────────────────────────────────────────────────
+  if (scanning) {
+    return (
+      <div className="space-y-3">
+        <BarcodeScanner
+          onDetected={handleBarcode}
+          onClose={() => setScanning(false)}
+        />
+      </div>
+    )
+  }
+
   // ── Search view ───────────────────────────────────────────────────────────
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2 px-4 py-3">
         <Search size={16} className="text-[#8E8E93] shrink-0" />
         <input
           ref={inputRef}
@@ -257,6 +295,13 @@ export default function FoodSearch({ date }: Props) {
           placeholder="Search food..."
           className="flex-1 text-[15px] text-[#1C1C1E] placeholder:text-[#C7C7CC] outline-none bg-transparent"
         />
+        <button
+          onClick={() => setScanning(true)}
+          className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7] transition-colors"
+          title="Scan barcode"
+        >
+          <Scan size={18} />
+        </button>
         {query.length > 0 ? (
           <button
             onClick={() => { setQuery(''); setResults([]) }}
@@ -271,13 +316,26 @@ export default function FoodSearch({ date }: Props) {
         )}
       </div>
 
+      {barcodeLoading && (
+        <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
+          Looking up product…
+        </div>
+      )}
+
+      {barcodeError && !barcodeLoading && (
+        <div className="px-4 pb-3 border-t border-[#F2F2F7] pt-3 flex items-center justify-between">
+          <p className="text-[13px] text-[#FF453A]">{barcodeError}</p>
+          <button onClick={() => setBarcodeError('')} className="text-[#8E8E93]"><X size={14} /></button>
+        </div>
+      )}
+
       {loading && (
         <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
           Searching...
         </div>
       )}
 
-      {!loading && results.length > 0 && (
+      {!loading && !barcodeLoading && results.length > 0 && (
         <ul className="divide-y divide-[#F2F2F7] max-h-72 overflow-y-auto border-t border-[#F2F2F7]">
           {results.map(food => (
             <li key={food.fdcId}>
@@ -300,7 +358,7 @@ export default function FoodSearch({ date }: Props) {
         </ul>
       )}
 
-      {!loading && query.trim().length >= 2 && results.length === 0 && (
+      {!loading && !barcodeLoading && query.trim().length >= 2 && results.length === 0 && (
         <div className="px-4 py-4 text-[14px] text-[#8E8E93] text-center border-t border-[#F2F2F7]">
           No results for &ldquo;{query}&rdquo;
         </div>
