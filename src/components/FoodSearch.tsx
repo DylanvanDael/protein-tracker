@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Plus, X } from 'lucide-react'
+import { Search, Plus, X, Minus } from 'lucide-react'
 import { addFoodEntry } from '@/lib/actions'
 
 interface FoodResult {
@@ -25,7 +25,9 @@ export default function FoodSearch({ date }: Props) {
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<FoodResult | null>(null)
-  const [quantity, setQuantity] = useState('')
+  const [servings, setServings] = useState(1)
+  const [customGrams, setCustomGrams] = useState('')
+  const [useCustomGrams, setUseCustomGrams] = useState(false)
   const [adding, setAdding] = useState(false)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -51,21 +53,33 @@ export default function FoodSearch({ date }: Props) {
 
   function selectFood(food: FoodResult) {
     setSelected(food)
-    setQuantity(String(food.servingSize || 100))
+    setServings(1)
+    setCustomGrams(String(food.servingSize || 100))
+    setUseCustomGrams(false)
     setResults([])
     setQuery('')
   }
 
+  // ratio: servings × servingSize gives total grams, nutrients are per servingSize
+  const ratio = selected
+    ? useCustomGrams
+      ? (parseFloat(customGrams) || 0) / (selected.servingSize || 100)
+      : servings
+    : 0
+
+  const totalGrams = selected
+    ? useCustomGrams
+      ? parseFloat(customGrams) || 0
+      : servings * (selected.servingSize || 100)
+    : 0
+
   async function handleAdd() {
-    if (!selected || !quantity) return
-    const qty = parseFloat(quantity)
-    if (isNaN(qty) || qty <= 0) return
-    const ratio = qty / (selected.servingSize || 100)
+    if (!selected || ratio <= 0) return
     setAdding(true)
     await addFoodEntry({
       date,
       foodName: selected.description,
-      quantity: qty,
+      quantity: Math.round(totalGrams * 10) / 10,
       unit: selected.servingSizeUnit || 'g',
       calories: Math.round(selected.calories * ratio * 10) / 10,
       proteinG: Math.round(selected.proteinG * ratio * 10) / 10,
@@ -73,7 +87,9 @@ export default function FoodSearch({ date }: Props) {
       carbsG: Math.round(selected.carbsG * ratio * 10) / 10,
     })
     setSelected(null)
-    setQuantity('')
+    setServings(1)
+    setCustomGrams('')
+    setUseCustomGrams(false)
     setOpen(false)
     setAdding(false)
   }
@@ -83,11 +99,10 @@ export default function FoodSearch({ date }: Props) {
     setSelected(null)
     setQuery('')
     setResults([])
-    setQuantity('')
+    setServings(1)
+    setCustomGrams('')
+    setUseCustomGrams(false)
   }
-
-  const qty = parseFloat(quantity) || 0
-  const ratio = selected ? qty / (selected.servingSize || 100) : 0
 
   if (!open) {
     return (
@@ -103,6 +118,7 @@ export default function FoodSearch({ date }: Props) {
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
+      {/* Search bar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#F2F2F7]">
         <Search size={16} className="text-[#8E8E93] shrink-0" />
         <input
@@ -118,9 +134,10 @@ export default function FoodSearch({ date }: Props) {
       </div>
 
       {loading && (
-        <div className="px-4 py-3 text-sm text-[#8E8E93]">Searching...</div>
+        <div className="px-4 py-3 text-[14px] text-[#8E8E93]">Searching...</div>
       )}
 
+      {/* Results list */}
       {results.length > 0 && !selected && (
         <ul className="divide-y divide-[#F2F2F7] max-h-64 overflow-y-auto">
           {results.map(food => (
@@ -136,7 +153,7 @@ export default function FoodSearch({ date }: Props) {
                   <p className="text-[12px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>
                 )}
                 <p className="text-[12px] text-[#8E8E93] mt-0.5">
-                  per {food.servingSize}{food.servingSizeUnit} · {Math.round(food.calories)} kcal · {Math.round(food.proteinG)}g protein
+                  per serving ({food.servingSize}{food.servingSizeUnit}) · {Math.round(food.calories)} kcal · {Math.round(food.proteinG)}g protein
                 </p>
               </button>
             </li>
@@ -144,8 +161,10 @@ export default function FoodSearch({ date }: Props) {
         </ul>
       )}
 
+      {/* Quantity picker */}
       {selected && (
         <div className="px-4 py-4 space-y-4">
+          {/* Food name */}
           <div>
             <p className="text-[15px] font-semibold text-[#1C1C1E] leading-snug">{selected.description}</p>
             {selected.brandOwner && (
@@ -153,18 +172,65 @@ export default function FoodSearch({ date }: Props) {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="text-[14px] text-[#6C6C70] shrink-0">Amount ({selected.servingSizeUnit})</label>
-            <input
-              type="number"
-              value={quantity}
-              onChange={e => setQuantity(e.target.value)}
-              min="1"
-              className="flex-1 text-right text-[15px] font-semibold text-[#1C1C1E] bg-[#F2F2F7] rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
-            />
-          </div>
+          {!useCustomGrams ? (
+            /* Servings stepper */
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-[#6C6C70]">Servings</span>
+                <span className="text-[12px] text-[#8E8E93]">
+                  1 serving = {selected.servingSize}{selected.servingSizeUnit}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setServings(s => Math.max(0.5, parseFloat((s - 0.5).toFixed(1))))}
+                  className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
+                >
+                  <Minus size={16} strokeWidth={2.5} />
+                </button>
+                <div className="flex-1 text-center">
+                  <span className="text-[28px] font-bold text-[#1C1C1E]">{servings}</span>
+                  <p className="text-[12px] text-[#8E8E93] mt-0.5">= {Math.round(totalGrams)}{selected.servingSizeUnit}</p>
+                </div>
+                <button
+                  onClick={() => setServings(s => parseFloat((s + 0.5).toFixed(1)))}
+                  className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
+                >
+                  <Plus size={16} strokeWidth={2.5} />
+                </button>
+              </div>
+              <button
+                onClick={() => { setUseCustomGrams(true); setCustomGrams(String(Math.round(totalGrams))) }}
+                className="text-[12px] text-[#007AFF] mt-1"
+              >
+                Enter custom amount in grams
+              </button>
+            </div>
+          ) : (
+            /* Custom grams input */
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-[#6C6C70]">Amount (g)</span>
+                <button
+                  onClick={() => setUseCustomGrams(false)}
+                  className="text-[12px] text-[#007AFF]"
+                >
+                  Use servings
+                </button>
+              </div>
+              <input
+                autoFocus
+                type="number"
+                value={customGrams}
+                onChange={e => setCustomGrams(e.target.value)}
+                min="1"
+                className="w-full text-right text-[22px] font-bold text-[#1C1C1E] bg-[#F2F2F7] rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+              />
+            </div>
+          )}
 
-          {qty > 0 && (
+          {/* Macro preview */}
+          {ratio > 0 && (
             <div className="grid grid-cols-4 gap-2 bg-[#F2F2F7] rounded-2xl px-3 py-3">
               {[
                 { label: 'Calories', value: Math.round(selected.calories * ratio), unit: 'kcal' },
@@ -181,16 +247,17 @@ export default function FoodSearch({ date }: Props) {
             </div>
           )}
 
+          {/* Actions */}
           <div className="flex gap-2">
             <button
-              onClick={() => { setSelected(null); setQuery(''); setQuantity('') }}
+              onClick={() => { setSelected(null); setQuery(''); setServings(1); setUseCustomGrams(false) }}
               className="flex-1 py-3 rounded-2xl bg-[#F2F2F7] text-[#1C1C1E] font-semibold text-[15px] active:opacity-70 transition-opacity"
             >
               Back
             </button>
             <button
               onClick={handleAdd}
-              disabled={adding || qty <= 0}
+              disabled={adding || ratio <= 0}
               className="flex-1 py-3 rounded-2xl bg-[#007AFF] text-white font-semibold text-[15px] active:opacity-80 transition-opacity disabled:opacity-40"
             >
               {adding ? 'Adding...' : 'Add'}
