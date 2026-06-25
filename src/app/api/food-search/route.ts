@@ -5,52 +5,86 @@ export async function GET(request: NextRequest) {
   if (!query || query.trim().length < 2) return Response.json([])
 
   try {
-    const params = new URLSearchParams({
-      search_terms: query,
-      search_simple: '1',
-      action: 'process',
-      json: '1',
-      page_size: '10',
-      lc: 'nl',
-      fields: 'product_name,brands,serving_quantity,nutriments,code',
-    })
+    const data = await searchOpenFoodFacts(query)
 
-    const res = await fetch(
-      `https://nl.openfoodfacts.org/cgi/search.pl?${params}`,
-      { next: { revalidate: 3600 } }
-    )
-    const data = await res.json()
-
-    const foods = (data.products ?? [])
+    const foods = (data.hits ?? [])
       .filter((p: OFFProduct) => p.product_name && p.nutriments)
       .map((p: OFFProduct) => {
         const n = p.nutriments
+        const energyKj = n['energy-kj_100g'] ?? n['energy_100g']
         const kcalPer100 =
           n['energy-kcal_100g'] ??
-          (n['energy_100g'] ? Math.round(n['energy_100g'] / 4.184) : 0)
+          (energyKj ? Math.round(energyKj / 4.184) : 0)
         const servingSize = parseFloat(String(p.serving_quantity)) || 100
+        // Nutriments from OpenFoodFacts are per 100g; scale them to one serving
+        // so the returned values mean "per serving (servingSize)".
+        const perServing = (per100: number) => Math.round((per100 * servingSize) / 100 * 10) / 10
 
         return {
           fdcId: p.code ? Number(p.code.slice(-9)) : Date.now(),
           description: p.product_name.trim(),
-          brandOwner: p.brands ? p.brands.split(',')[0].trim() : null,
+          brandOwner: brandName(p.brands),
           servingSize,
           servingSizeUnit: 'g',
-          calories: Math.round(kcalPer100 * 10) / 10,
-          proteinG: Math.round((n['proteins_100g'] ?? 0) * 10) / 10,
-          fatG: Math.round((n['fat_100g'] ?? 0) * 10) / 10,
-          carbsG: Math.round((n['carbohydrates_100g'] ?? 0) * 10) / 10,
+          calories: perServing(kcalPer100),
+          proteinG: perServing(n['proteins_100g'] ?? 0),
+          fatG: perServing(n['fat_100g'] ?? 0),
+          carbsG: perServing(n['carbohydrates_100g'] ?? 0),
         }
       })
 
     return Response.json(foods)
   } catch {
-    return Response.json({ error: 'Search failed' }, { status: 500 })
+    // Signal a transient failure so the client can retry / show an error,
+    // rather than silently rendering it as "no results".
+    return Response.json({ error: 'Search failed' }, { status: 502 })
   }
+}
+
+// search-a-licious — OpenFoodFacts' current search API. Much faster and far more
+// reliable than the legacy search.pl endpoint. Each attempt is bounded by a
+// timeout and retried once so a single flaky upstream response doesn't surface
+// as an empty result set.
+async function searchOpenFoodFacts(query: string): Promise<{ hits?: OFFProduct[] }> {
+  const params = new URLSearchParams({
+    q: query,
+    langs: 'nl,en',
+    page_size: '10',
+    fields: 'product_name,brands,serving_quantity,nutriments,code',
+  })
+  const url = `https://search.openfoodfacts.org/search?${params}`
+
+  let lastError: unknown
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 7000)
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'protein-tracker/1.0 (+https://github.com)' },
+        next: { revalidate: 3600 },
+      })
+      if (!res.ok) throw new Error(`upstream ${res.status}`)
+      return await res.json()
+    } catch (e) {
+      lastError = e
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+  throw lastError
+}
+
+// `brands` comes back as a string array (e.g. ["Calve"]) from the new API.
+function brandName(brands: OFFProduct['brands']): string | null {
+  if (Array.isArray(brands)) return brands[0]?.trim() || null
+  if (typeof brands === 'string') return brands.split(',')[0].trim() || null
+  return null
 }
 
 interface OFFNutriments {
   'energy-kcal_100g'?: number
+  'energy-kj_100g'?: number
   'energy_100g'?: number
   'proteins_100g'?: number
   'fat_100g'?: number
@@ -60,7 +94,7 @@ interface OFFNutriments {
 interface OFFProduct {
   code?: string
   product_name: string
-  brands?: string
+  brands?: string[] | string
   serving_quantity?: string | number
   nutriments: OFFNutriments
 }

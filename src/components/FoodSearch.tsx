@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Plus, X, Minus, ChevronLeft, Scan, Camera } from 'lucide-react'
+import { Search, Plus, X, Minus, ChevronLeft, Scan, Camera, PenLine } from 'lucide-react'
 import { addFoodEntry } from '@/lib/actions'
 import BarcodeScanner from './BarcodeScanner'
 
@@ -26,11 +26,14 @@ export default function FoodSearch({ date }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState(false)
   const [selected, setSelected] = useState<FoodResult | null>(null)
   const [customName, setCustomName] = useState('')
   const [servings, setServings] = useState(1)
   const [customGrams, setCustomGrams] = useState('')
   const [useCustomGrams, setUseCustomGrams] = useState(false)
+  const [editedMacros, setEditedMacros] = useState({ calories: '0', protein: '0', carbs: '0', fat: '0' })
+  const [macrosPerGram, setMacrosPerGram] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
   const [adding, setAdding] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [barcodeError, setBarcodeError] = useState('')
@@ -46,16 +49,24 @@ export default function FoodSearch({ date }: Props) {
 
   const search = useCallback(async (q: string) => {
     abortRef.current?.abort()
-    if (q.trim().length < 2) { setResults([]); setLoading(false); return }
+    if (q.trim().length < 2) { setResults([]); setLoading(false); setSearchError(false); return }
     abortRef.current = new AbortController()
     setLoading(true)
+    setSearchError(false)
     setResults([])
     try {
       const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`, { signal: abortRef.current.signal })
       const data = await res.json()
-      setResults(Array.isArray(data) ? data : [])
+      if (!res.ok || !Array.isArray(data)) {
+        // Transient upstream failure — surface it as a retryable error instead
+        // of an empty result set, which reads as a false "no results".
+        setSearchError(true)
+        setResults([])
+      } else {
+        setResults(data)
+      }
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') setResults([])
+      if ((e as Error).name !== 'AbortError') { setSearchError(true); setResults([]) }
     } finally {
       setLoading(false)
     }
@@ -89,6 +100,7 @@ export default function FoodSearch({ date }: Props) {
     setOpen(false)
     setQuery('')
     setResults([])
+    setSearchError(false)
     setSelected(null)
     setServings(1)
     setCustomGrams('')
@@ -251,12 +263,44 @@ export default function FoodSearch({ date }: Props) {
     }
   }
 
+  function macrosFromPerGram(pg: typeof macrosPerGram, grams: number) {
+    return {
+      calories: String(Math.round(pg.calories * grams)),
+      protein:  String(Math.round(pg.protein  * grams * 10) / 10),
+      carbs:    String(Math.round(pg.carbs    * grams * 10) / 10),
+      fat:      String(Math.round(pg.fat      * grams * 10) / 10),
+    }
+  }
+
   function selectFood(food: FoodResult) {
+    const sz = food.servingSize || 100
+    const pg = {
+      calories: food.calories / sz,
+      protein:  food.proteinG / sz,
+      carbs:    food.carbsG   / sz,
+      fat:      food.fatG     / sz,
+    }
     setSelected(food)
     setCustomName(food.description)
     setServings(1)
-    setCustomGrams(String(food.servingSize || 100))
+    setCustomGrams(String(sz))
     setUseCustomGrams(false)
+    setMacrosPerGram(pg)
+    setEditedMacros(macrosFromPerGram(pg, sz))
+  }
+
+  function addFromScratch() {
+    selectFood({
+      fdcId: Date.now(),
+      description: query.trim(),
+      brandOwner: null,
+      servingSize: 100,
+      servingSizeUnit: 'g',
+      calories: 0,
+      proteinG: 0,
+      fatG: 0,
+      carbsG: 0,
+    })
   }
 
   function goBack() {
@@ -276,16 +320,17 @@ export default function FoodSearch({ date }: Props) {
 
   async function handleAdd() {
     if (!selected || ratio <= 0) return
+    const foodName = customName.trim() || selected.description || 'Custom food'
     setAdding(true)
     await addFoodEntry({
       date,
-      foodName: customName.trim() || selected.description,
+      foodName,
       quantity: Math.round(totalGrams * 10) / 10,
       unit: selected.servingSizeUnit || 'g',
-      calories: Math.round(selected.calories * ratio * 10) / 10,
-      proteinG: Math.round(selected.proteinG * ratio * 10) / 10,
-      fatG: Math.round(selected.fatG * ratio * 10) / 10,
-      carbsG: Math.round(selected.carbsG * ratio * 10) / 10,
+      calories: parseFloat(editedMacros.calories) || 0,
+      proteinG: parseFloat(editedMacros.protein)  || 0,
+      fatG:     parseFloat(editedMacros.fat)       || 0,
+      carbsG:   parseFloat(editedMacros.carbs)     || 0,
     })
     dismiss()
     setAdding(false)
@@ -335,17 +380,31 @@ export default function FoodSearch({ date }: Props) {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setServings(s => Math.max(0.5, parseFloat((s - 0.5).toFixed(1))))}
+                  onClick={() => { const n = Math.max(0.5, parseFloat((servings - 0.5).toFixed(1))); setServings(n); setEditedMacros(macrosFromPerGram(macrosPerGram, n * (selected.servingSize || 100))) }}
                   className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
                 >
                   <Minus size={16} strokeWidth={2.5} />
                 </button>
                 <div className="flex-1 text-center">
-                  <span className="text-[28px] font-bold text-[#1C1C1E]">{servings}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={servings}
+                    onChange={e => {
+                      const n = parseFloat(e.target.value)
+                      if (!isNaN(n) && n > 0) {
+                        setServings(n)
+                        setEditedMacros(macrosFromPerGram(macrosPerGram, n * (selected.servingSize || 100)))
+                      }
+                    }}
+                    min="0.1"
+                    step="0.1"
+                    className="w-full text-center text-[28px] font-bold text-[#1C1C1E] bg-transparent outline-none focus:bg-[#F2F2F7] rounded-xl transition-colors"
+                  />
                   <p className="text-[12px] text-[#8E8E93] mt-0.5">= {Math.round(totalGrams)}{selected.servingSizeUnit}</p>
                 </div>
                 <button
-                  onClick={() => setServings(s => parseFloat((s + 0.5).toFixed(1)))}
+                  onClick={() => { const n = parseFloat((servings + 0.5).toFixed(1)); setServings(n); setEditedMacros(macrosFromPerGram(macrosPerGram, n * (selected.servingSize || 100))) }}
                   className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
                 >
                   <Plus size={16} strokeWidth={2.5} />
@@ -362,13 +421,13 @@ export default function FoodSearch({ date }: Props) {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-[#6C6C70]">Amount (g)</span>
-                <button onClick={() => setUseCustomGrams(false)} className="text-[12px] text-[#007AFF]">Use servings</button>
+                <button onClick={() => { setUseCustomGrams(false); setEditedMacros(macrosFromPerGram(macrosPerGram, servings * (selected.servingSize || 100))) }} className="text-[12px] text-[#007AFF]">Use servings</button>
               </div>
               <input
                 autoFocus
                 type="number"
                 value={customGrams}
-                onChange={e => setCustomGrams(e.target.value)}
+                onChange={e => { setCustomGrams(e.target.value); setEditedMacros(macrosFromPerGram(macrosPerGram, parseFloat(e.target.value) || 0)) }}
                 min="1"
                 className="w-full text-right text-[22px] font-bold text-[#1C1C1E] bg-[#F2F2F7] rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
               />
@@ -376,19 +435,33 @@ export default function FoodSearch({ date }: Props) {
           )}
 
           {ratio > 0 && (
-            <div className="grid grid-cols-4 gap-2 bg-[#F2F2F7] rounded-2xl px-3 py-3">
-              {[
-                { label: 'Calories', value: Math.round(selected.calories * ratio), unit: 'kcal' },
-                { label: 'Protein', value: Math.round(selected.proteinG * ratio * 10) / 10, unit: 'g' },
-                { label: 'Carbs', value: Math.round(selected.carbsG * ratio * 10) / 10, unit: 'g' },
-                { label: 'Fat', value: Math.round(selected.fatG * ratio * 10) / 10, unit: 'g' },
-              ].map(m => (
-                <div key={m.label} className="flex flex-col items-center">
-                  <span className="text-[13px] font-semibold text-[#1C1C1E]">{m.value}</span>
-                  <span className="text-[10px] text-[#8E8E93]">{m.unit}</span>
-                  <span className="text-[10px] text-[#8E8E93] mt-0.5">{m.label}</span>
-                </div>
-              ))}
+            <div className="bg-[#F2F2F7] rounded-2xl px-3 py-3">
+              <p className="text-[10px] font-medium text-[#8E8E93] uppercase tracking-wide mb-2 text-center">Tap to edit</p>
+              <div className="grid grid-cols-4 gap-2">
+                {([
+                  { key: 'calories' as const, label: 'Calories', unit: 'kcal' },
+                  { key: 'protein'  as const, label: 'Protein',  unit: 'g' },
+                  { key: 'carbs'    as const, label: 'Carbs',    unit: 'g' },
+                  { key: 'fat'      as const, label: 'Fat',      unit: 'g' },
+                ]).map(m => (
+                  <div key={m.key} className="flex flex-col items-center gap-0.5">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={editedMacros[m.key]}
+                      onChange={e => setEditedMacros(prev => ({ ...prev, [m.key]: e.target.value }))}
+                      onBlur={e => {
+                        if (totalGrams <= 0) return
+                        const v = parseFloat(e.target.value) || 0
+                        setMacrosPerGram(prev => ({ ...prev, [m.key]: v / totalGrams }))
+                      }}
+                      className="w-full text-center text-[15px] font-semibold text-[#1C1C1E] bg-white rounded-xl px-1 py-1.5 outline-none focus:ring-2 focus:ring-[#007AFF]/40 min-w-0"
+                    />
+                    <span className="text-[10px] text-[#8E8E93]">{m.unit}</span>
+                    <span className="text-[10px] text-[#8E8E93]">{m.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -454,7 +527,7 @@ export default function FoodSearch({ date }: Props) {
           onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }}
         />
         {query.length > 0 ? (
-          <button onClick={() => { setQuery(''); setResults([]) }} className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors">
+          <button onClick={() => { setQuery(''); setResults([]); setSearchError(false) }} className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors">
             <X size={18} />
           </button>
         ) : (
@@ -463,6 +536,19 @@ export default function FoodSearch({ date }: Props) {
           </button>
         )}
       </div>
+
+      {/* Add from scratch — always visible in empty state */}
+      {showUploadZone && (
+        <div className="mx-3 mb-2">
+          <button
+            onClick={addFromScratch}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-[#E5E5EA] text-[#007AFF] text-[13px] font-medium hover:bg-[#F2F2F7] active:opacity-70 transition-colors"
+          >
+            <PenLine size={14} />
+            Add custom food
+          </button>
+        </div>
+      )}
 
       {/* Upload zone — tap, drag & drop, or paste */}
       {showUploadZone && (
@@ -545,9 +631,28 @@ export default function FoodSearch({ date }: Props) {
         </ul>
       )}
 
-      {!loading && !barcodeLoading && query.trim().length >= 2 && results.length === 0 && (
-        <div className="px-4 py-4 text-[14px] text-[#8E8E93] text-center border-t border-[#F2F2F7]">
-          No results for &ldquo;{query}&rdquo;
+      {!loading && !barcodeLoading && searchError && query.trim().length >= 2 && (
+        <div className="px-4 py-4 border-t border-[#F2F2F7] space-y-3">
+          <p className="text-[14px] text-[#8E8E93] text-center">Search is temporarily unavailable.</p>
+          <button
+            onClick={() => search(query)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-[#E5E5EA] text-[#007AFF] text-[13px] font-medium hover:bg-[#F2F2F7] active:opacity-70 transition-colors"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!loading && !barcodeLoading && !searchError && query.trim().length >= 2 && results.length === 0 && (
+        <div className="px-4 py-4 border-t border-[#F2F2F7] space-y-3">
+          <p className="text-[14px] text-[#8E8E93] text-center">No results for &ldquo;{query}&rdquo;</p>
+          <button
+            onClick={addFromScratch}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-[#E5E5EA] text-[#007AFF] text-[13px] font-medium hover:bg-[#F2F2F7] active:opacity-70 transition-colors"
+          >
+            <PenLine size={14} />
+            Add &ldquo;{query}&rdquo; as custom food
+          </button>
         </div>
       )}
     </div>

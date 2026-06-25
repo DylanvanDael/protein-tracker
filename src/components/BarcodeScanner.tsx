@@ -3,22 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 
-interface DetectedBarcode {
-  rawValue: string
-  format: string
-}
-
-interface BarcodeDet {
-  detect(source: HTMLVideoElement): Promise<DetectedBarcode[]>
-}
-
-interface BarcodeDetectorConstructor {
-  new(options?: { formats: string[] }): BarcodeDet
-  getSupportedFormats(): Promise<string[]>
-}
-
-declare const BarcodeDetector: BarcodeDetectorConstructor
-
 interface Props {
   onDetected: (barcode: string) => void
   onClose: () => void
@@ -27,28 +11,18 @@ interface Props {
 export default function BarcodeScanner({ onDetected, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const rafRef = useRef<number | null>(null)
   const doneRef = useRef(false)
   const [status, setStatus] = useState<'starting' | 'scanning' | 'found' | 'error'>('starting')
   const [errorMsg, setErrorMsg] = useState('')
 
-  function stopAll() {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+  function stopStream() {
     streamRef.current?.getTracks().forEach(t => t.stop())
-    rafRef.current = null
     streamRef.current = null
   }
 
   useEffect(() => {
-    if (!('BarcodeDetector' in window)) {
-      setStatus('error')
-      setErrorMsg('Barcode scanning is not supported in this browser. Try Chrome or Safari 17+.')
-      return
-    }
-
-    const detector = new BarcodeDetector({
-      formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
-    })
+    let cancelled = false
+    doneRef.current = false
 
     async function start() {
       try {
@@ -56,38 +30,50 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
           video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
         })
         streamRef.current = stream
+        if (cancelled) { stopStream(); return }
         if (!videoRef.current) return
+
         videoRef.current.srcObject = stream
         await videoRef.current.play()
         setStatus('scanning')
-        scan()
-      } catch {
-        setStatus('error')
-        setErrorMsg('Could not access camera. Please allow camera access and try again.')
+
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        if (cancelled) return
+        const reader = new BrowserMultiFormatReader()
+
+        const result = await reader.decodeOnceFromVideoElement(videoRef.current)
+
+        if (!cancelled && !doneRef.current) {
+          doneRef.current = true
+          setStatus('found')
+          stopStream()
+          onDetected(result.getText())
+        }
+      } catch (e) {
+        if (!cancelled) {
+          const msg = String((e as Error)?.message ?? '').toLowerCase()
+          setErrorMsg(
+            msg.includes('permission') || msg.includes('notallowed') || msg.includes('denied')
+              ? 'Camera access denied. Please allow camera access in your browser settings and try again.'
+              : 'Could not access camera. Please allow camera access and try again.',
+          )
+          setStatus('error')
+        }
       }
     }
 
-    async function scan() {
-      if (!videoRef.current || doneRef.current) return
-      try {
-        const barcodes = await detector.detect(videoRef.current)
-        if (barcodes.length > 0 && !doneRef.current) {
-          doneRef.current = true
-          setStatus('found')
-          stopAll()
-          onDetected(barcodes[0].rawValue)
-          return
-        }
-      } catch { /* frame not ready yet */ }
-      rafRef.current = requestAnimationFrame(scan)
-    }
-
     start()
-    return stopAll
+
+    return () => {
+      cancelled = true
+      doneRef.current = true
+      stopStream()
+    }
   }, [onDetected])
 
   function handleClose() {
-    stopAll()
+    doneRef.current = true
+    stopStream()
     onClose()
   }
 
@@ -109,7 +95,6 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
       {status === 'scanning' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-64 h-40">
-            {/* Corners */}
             {([
               'top-0 left-0',
               'top-0 right-0 [transform:scaleX(-1)]',
@@ -121,8 +106,7 @@ export default function BarcodeScanner({ onDetected, onClose }: Props) {
                 <div className="absolute top-0 left-0 h-full w-[3px] bg-white rounded-full" />
               </div>
             ))}
-            {/* Animated scan line */}
-            <div className="absolute inset-x-2 h-[2px] bg-[#007AFF] rounded-full opacity-90 animate-bounce"
+            <div className="absolute inset-x-2 h-[2px] bg-[#007AFF] rounded-full opacity-90"
               style={{ animation: 'scanline 1.8s ease-in-out infinite', top: '50%' }}
             />
           </div>

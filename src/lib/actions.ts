@@ -25,6 +25,11 @@ export async function deleteFoodEntry(id: number) {
   revalidatePath('/')
 }
 
+export async function updateFoodEntry(id: number, data: Partial<{ foodName: string }>) {
+  await getDb().update(foodEntries).set(data).where(eq(foodEntries.id, id))
+  revalidatePath('/')
+}
+
 export async function getEntriesForDate(date: string) {
   return getDb().query.foodEntries.findMany({
     where: eq(foodEntries.date, date),

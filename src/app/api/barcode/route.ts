@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
       (n['energy_100g'] ? Math.round(n['energy_100g'] / 4.184) : 0)
 
     const servingSize = parseFloat(p.serving_quantity) || 100
+    // Nutriments from OpenFoodFacts are per 100g; scale them to one serving
+    // so the returned values mean "per serving (servingSize)".
+    const perServing = (per100: number) => Math.round((per100 * servingSize) / 100 * 10) / 10
 
     return Response.json({
       fdcId: Number(code.replace(/\D/g, '').slice(-9)) || Date.now(),
@@ -30,10 +33,10 @@ export async function GET(request: NextRequest) {
       brandOwner: p.brands ? p.brands.split(',')[0].trim() : null,
       servingSize,
       servingSizeUnit: 'g',
-      calories: Math.round(kcalPer100 * 10) / 10,
-      proteinG: Math.round((n['proteins_100g'] ?? 0) * 10) / 10,
-      fatG: Math.round((n['fat_100g'] ?? 0) * 10) / 10,
-      carbsG: Math.round((n['carbohydrates_100g'] ?? 0) * 10) / 10,
+      calories: perServing(kcalPer100),
+      proteinG: perServing(n['proteins_100g'] ?? 0),
+      fatG: perServing(n['fat_100g'] ?? 0),
+      carbsG: perServing(n['carbohydrates_100g'] ?? 0),
     })
   } catch {
     return Response.json({ error: 'Lookup failed' }, { status: 500 })
