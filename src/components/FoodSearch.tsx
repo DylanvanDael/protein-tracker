@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { addFoodEntry, addQuickAdd, deleteQuickAdd, type getRecentFoods } from '@/lib/actions'
 import BarcodeScanner from './BarcodeScanner'
@@ -43,6 +43,24 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
   function requestClose(combo?: ConfirmedItem[]) {
     if (combo && combo.length > 0 && !window.confirm('Discard the meal you were building?')) return
     close()
+  }
+
+  // The sheet renders as a fixed overlay (see below) so it never sits in the
+  // page's own scroll flow — otherwise every reflow while typing (results
+  // appearing/disappearing) shifts the long page underneath the focused
+  // input, and iOS repeatedly re-scrolls to keep it visible above the
+  // keyboard, which reads as glitchy auto-scrolling.
+  useEffect(() => {
+    if (mode.kind === 'closed') return
+    const original = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = original }
+  }, [mode.kind])
+
+  function currentCombo(): ConfirmedItem[] | undefined {
+    if (mode.kind === 'combo-review') return mode.items
+    if (mode.kind === 'closed') return undefined
+    return mode.combo
   }
 
   async function handleBarcode(code: string, combo?: ConfirmedItem[]) {
@@ -126,9 +144,10 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
     )
   }
 
+  let content
   if (mode.kind === 'scanning') {
     const combo = mode.combo
-    return (
+    content = (
       <div className="space-y-3">
         <BarcodeScanner
           onDetected={code => handleBarcode(code, combo)}
@@ -136,10 +155,8 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
         />
       </div>
     )
-  }
-
-  if (mode.kind === 'detail') {
-    return (
+  } else if (mode.kind === 'detail') {
+    content = (
       <DetailEditor
         key={mode.food.fdcId}
         food={mode.food}
@@ -150,10 +167,8 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
         confirming={adding}
       />
     )
-  }
-
-  if (mode.kind === 'combo-review') {
-    return (
+  } else if (mode.kind === 'combo-review') {
+    content = (
       <ComboBuilder
         items={mode.items}
         onRemoveItem={i => setMode({ kind: 'combo-review', items: mode.items.filter((_, idx) => idx !== i) })}
@@ -163,26 +178,43 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
         confirming={adding}
       />
     )
+  } else {
+    // browse
+    const combo = mode.combo
+    content = (
+      <QuickAddsRecents
+        quickAdds={initialQuickAdds}
+        recentFoods={initialRecentFoods}
+        combo={combo}
+        onSelectFood={food => setMode({ kind: 'detail', food, intent: 'log', combo })}
+        onScanRequested={() => setMode({ kind: 'scanning', combo })}
+        onNewQuickAdd={() => setMode({ kind: 'detail', food: BLANK_FOOD, intent: 'quick-add', combo })}
+        onDeleteQuickAdd={id => deleteQuickAdd(id)}
+        onStartCombo={() => setMode({ kind: 'browse', combo: [] })}
+        onFinishCombo={() => { if (combo) setMode({ kind: 'combo-review', items: combo }) }}
+        onCancelCombo={() => setMode({ kind: 'browse' })}
+        onClose={() => requestClose(combo)}
+        barcodeLoading={barcodeLoading}
+        barcodeError={barcodeError}
+        onDismissBarcodeError={() => setBarcodeError('')}
+      />
+    )
   }
 
-  // browse
-  const combo = mode.combo
+  // Rendered as a fixed overlay, detached from the page's own scroll flow —
+  // see the effect above for why that matters on iOS.
   return (
-    <QuickAddsRecents
-      quickAdds={initialQuickAdds}
-      recentFoods={initialRecentFoods}
-      combo={combo}
-      onSelectFood={food => setMode({ kind: 'detail', food, intent: 'log', combo })}
-      onScanRequested={() => setMode({ kind: 'scanning', combo })}
-      onNewQuickAdd={() => setMode({ kind: 'detail', food: BLANK_FOOD, intent: 'quick-add', combo })}
-      onDeleteQuickAdd={id => deleteQuickAdd(id)}
-      onStartCombo={() => setMode({ kind: 'browse', combo: [] })}
-      onFinishCombo={() => { if (combo) setMode({ kind: 'combo-review', items: combo }) }}
-      onCancelCombo={() => setMode({ kind: 'browse' })}
-      onClose={() => requestClose(combo)}
-      barcodeLoading={barcodeLoading}
-      barcodeError={barcodeError}
-      onDismissBarcodeError={() => setBarcodeError('')}
-    />
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center"
+      onClick={() => requestClose(currentCombo())}
+    >
+      <div
+        className="w-full sm:max-w-md max-h-[88vh] overflow-y-auto overscroll-contain"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {content}
+      </div>
+    </div>
   )
 }
