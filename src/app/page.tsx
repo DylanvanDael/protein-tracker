@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { getEntriesForDate, getGoals } from '@/lib/actions'
+import { getEntriesForDate, getGoals, getQuickAdds, getRecentFoods } from '@/lib/actions'
 import MacroRing from '@/components/MacroRing'
 import FoodSearch from '@/components/FoodSearch'
 import EntryRow from '@/components/EntryRow'
@@ -18,7 +18,12 @@ interface PageProps {
 export default async function Home({ searchParams }: PageProps) {
   const { date: dateParam } = await searchParams
   const date = dateParam ?? todayString()
-  const [entries, goalRow] = await Promise.all([getEntriesForDate(date), getGoals()])
+  const [entries, goalRow, quickAdds, recentFoods] = await Promise.all([
+    getEntriesForDate(date),
+    getGoals(),
+    getQuickAdds(),
+    getRecentFoods(10),
+  ])
 
   const GOALS = {
     calories: goalRow.calories,
@@ -162,7 +167,7 @@ export default async function Home({ searchParams }: PageProps) {
 
         {/* Add food */}
         <Suspense fallback={null}>
-          <FoodSearch date={date} />
+          <FoodSearch date={date} initialQuickAdds={quickAdds} initialRecentFoods={recentFoods} />
         </Suspense>
 
         {/* Goal settings */}

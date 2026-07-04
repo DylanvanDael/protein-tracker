@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Settings, Check } from 'lucide-react'
 import { updateGoals } from '@/lib/actions'
+import { sanitizeDecimalInput, parseDecimal } from '@/lib/number'
 import type { Goals } from '@/lib/schema'
 
 interface Props {
@@ -21,10 +22,10 @@ const FIELDS: { key: GoalKey; label: string; unit: string; color: string }[] = [
 export default function GoalSettings({ initialGoals }: Props) {
   const [open, setOpen] = useState(false)
   const [values, setValues] = useState({
-    calories: initialGoals.calories,
-    proteinG: initialGoals.proteinG,
-    fatG: initialGoals.fatG,
-    carbsG: initialGoals.carbsG,
+    calories: String(initialGoals.calories),
+    proteinG: String(initialGoals.proteinG),
+    fatG: String(initialGoals.fatG),
+    carbsG: String(initialGoals.carbsG),
   })
   const [saved, setSaved] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -32,7 +33,12 @@ export default function GoalSettings({ initialGoals }: Props) {
   saveRef.current = values
 
   const save = useCallback(async (vals: typeof values) => {
-    await updateGoals(vals)
+    await updateGoals({
+      calories: parseDecimal(vals.calories),
+      proteinG: parseDecimal(vals.proteinG),
+      fatG: parseDecimal(vals.fatG),
+      carbsG: parseDecimal(vals.carbsG),
+    })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }, [])
@@ -44,10 +50,7 @@ export default function GoalSettings({ initialGoals }: Props) {
   }, [values, save])
 
   function handleChange(key: GoalKey, raw: string) {
-    const n = parseFloat(raw)
-    if (!isNaN(n) && n >= 0) {
-      setValues(v => ({ ...v, [key]: n }))
-    }
+    setValues(v => ({ ...v, [key]: sanitizeDecimalInput(raw) }))
   }
 
   return (
@@ -87,11 +90,12 @@ export default function GoalSettings({ initialGoals }: Props) {
               <label className="text-[14px] text-[#1C1C1E] font-medium w-20 shrink-0">{label}</label>
               <div className="flex-1 flex items-center gap-2 bg-[#F2F2F7] rounded-xl px-3 py-2">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
                   value={values[key]}
                   onChange={e => handleChange(key, e.target.value)}
-                  min="0"
-                  className="flex-1 text-[15px] font-semibold text-[#1C1C1E] bg-transparent outline-none text-right w-16"
+                  className="flex-1 text-[16px] font-semibold text-[#1C1C1E] bg-transparent outline-none text-right w-16"
                 />
                 <span className="text-[13px] text-[#8E8E93] shrink-0">{unit}</span>
               </div>
