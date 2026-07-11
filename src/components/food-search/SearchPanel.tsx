@@ -34,13 +34,20 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
   const search = useCallback(async (q: string) => {
     abortRef.current?.abort()
     if (q.trim().length < 2) { setResults([]); setLoading(false); setSearchError(false); return }
-    abortRef.current = new AbortController()
+    // Track the controller for *this* request. Only the latest request may
+    // update state — otherwise a superseded request (aborted when the user
+    // keeps typing) would run its `finally` and flip `loading` off while the
+    // current request is still in flight, briefly showing a false "No results".
+    const controller = new AbortController()
+    abortRef.current = controller
+    const isCurrent = () => abortRef.current === controller
     setLoading(true)
     setSearchError(false)
     setResults([])
     try {
-      const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`, { signal: abortRef.current.signal })
+      const res = await fetch(`/api/food-search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
       const data = await res.json()
+      if (!isCurrent()) return
       if (!res.ok || !Array.isArray(data)) {
         // Transient upstream failure — surface it as a retryable error instead
         // of an empty result set, which reads as a false "no results".
@@ -50,9 +57,9 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
         setResults(data)
       }
     } catch (e) {
-      if ((e as Error).name !== 'AbortError') { setSearchError(true); setResults([]) }
+      if (isCurrent() && (e as Error).name !== 'AbortError') { setSearchError(true); setResults([]) }
     } finally {
-      setLoading(false)
+      if (isCurrent()) setLoading(false)
     }
   }, [])
 
