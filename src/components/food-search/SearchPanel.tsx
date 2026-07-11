@@ -128,10 +128,11 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
   const idle = !hasQuery && !photoLoading && !barcodeLoading
 
   return (
-    <div>
+    <div className="flex flex-col min-h-0 flex-1">
       {/* Persistent search header — search field plus barcode and label-photo
-          shortcuts are always reachable, whatever is shown below. */}
-      <div className="px-3 pt-3 pb-2.5 flex items-center gap-2">
+          shortcuts are always reachable, whatever is shown below. Kept outside
+          the scroll region below so it never moves while results stream in. */}
+      <div className="px-3 pt-3 pb-2.5 flex items-center gap-2 shrink-0">
         <div className="flex-1 flex items-center gap-2 bg-[#F2F2F7] rounded-full px-3.5 h-11">
           <Search size={17} className="text-[#8E8E93] shrink-0" />
           <input
@@ -177,6 +178,9 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
         />
       </div>
 
+      {/* Single scroll region — only this area changes height as you type, so
+          the header above stays put. */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
       {/* Transient status / error strips */}
       {photoLoading && (
         <div className="mx-3 mb-3 rounded-2xl border-2 border-dashed border-[#007AFF] bg-[#EBF4FF] flex flex-col items-center justify-center gap-1.5 py-6">
@@ -253,7 +257,7 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
       )}
 
       {!loading && !barcodeLoading && results.length > 0 && (
-        <ul className="divide-y divide-[#F2F2F7] max-h-72 overflow-y-auto border-t border-[#F2F2F7]">
+        <ul className="divide-y divide-[#F2F2F7] border-t border-[#F2F2F7]">
           {results.map(food => (
             <li key={food.fdcId}>
               <button
@@ -294,6 +298,7 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
           </button>
         </div>
       )}
+      </div>
     </div>
   )
 }

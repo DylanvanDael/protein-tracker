@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, X, Minus, Plus } from 'lucide-react'
+import { ChevronLeft, X, Minus, Plus, Check, Bookmark } from 'lucide-react'
 import { sanitizeDecimalInput, parseDecimal } from '@/lib/number'
 import type { FoodResult, ConfirmedItem } from './types'
 
@@ -9,9 +9,12 @@ interface Props {
   food: FoodResult
   onBack: () => void
   onClose: () => void
-  onConfirm: (item: ConfirmedItem) => void
+  onConfirm: (item: ConfirmedItem, opts?: { saveAsQuickAdd?: boolean }) => void
   confirmLabel: string
   confirming?: boolean
+  // When true, offers a "save as quick add" toggle alongside logging — so a
+  // quick add is created as part of adding the food, not a separate flow.
+  showQuickAddOption?: boolean
 }
 
 type MacroKey = 'calories' | 'protein' | 'carbs' | 'fat'
@@ -46,13 +49,14 @@ const MACRO_FIELDS = [
 // The servings/grams picker + editable macro grid — shared by single-item
 // logging, combo-meal ingredient entry, and quick-add creation. It never
 // talks to the DB itself; the caller decides what onConfirm means.
-export default function DetailEditor({ food, onBack, onClose, onConfirm, confirmLabel, confirming }: Props) {
+export default function DetailEditor({ food, onBack, onClose, onConfirm, confirmLabel, confirming, showQuickAddOption }: Props) {
   const sz = food.servingSize || 100
   const unit = food.servingSizeUnit || 'g'
   const [customName, setCustomName] = useState(food.description)
   const [servings, setServings] = useState(1)
   const [customGrams, setCustomGrams] = useState(String(sz))
   const [useCustomGrams, setUseCustomGrams] = useState(false)
+  const [saveAsQuickAdd, setSaveAsQuickAdd] = useState(false)
   const [macrosPerGram, setMacrosPerGram] = useState<PerGram>(() => perGramFromFood(food))
   const [editedMacros, setEditedMacros] = useState(() => macrosFromPerGram(perGramFromFood(food), sz))
 
@@ -74,7 +78,7 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
       proteinG: parseDecimal(editedMacros.protein),
       fatG: parseDecimal(editedMacros.fat),
       carbsG: parseDecimal(editedMacros.carbs),
-    })
+    }, { saveAsQuickAdd: showQuickAddOption ? saveAsQuickAdd : false })
   }
 
   return (
@@ -206,6 +210,25 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
               ))}
             </div>
           </div>
+        )}
+
+        {showQuickAddOption && (
+          <button
+            type="button"
+            onClick={() => setSaveAsQuickAdd(v => !v)}
+            aria-pressed={saveAsQuickAdd}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[#F2F2F7] active:opacity-70 transition-opacity"
+          >
+            <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+              saveAsQuickAdd ? 'bg-[#007AFF]' : 'bg-white border border-[#C7C7CC]'
+            }`}>
+              {saveAsQuickAdd && <Check size={13} strokeWidth={3} className="text-white" />}
+            </span>
+            <span className="flex items-center gap-1.5 text-[14px] font-medium text-[#1C1C1E]">
+              <Bookmark size={14} className="text-[#8E8E93]" />
+              Also save as a quick add
+            </span>
+          </button>
         )}
 
         <button

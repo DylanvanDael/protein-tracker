@@ -7,19 +7,20 @@ import BarcodeScanner from './BarcodeScanner'
 import DetailEditor from './food-search/DetailEditor'
 import QuickAddsRecents from './food-search/QuickAddsRecents'
 import ComboBuilder from './food-search/ComboBuilder'
-import { BLANK_FOOD, type FoodResult, type ConfirmedItem } from './food-search/types'
+import { type FoodResult, type ConfirmedItem } from './food-search/types'
 import type { QuickAdd } from '@/lib/schema'
 
 type RecentFood = Awaited<ReturnType<typeof getRecentFoods>>[number]
 
-// Single source of truth for which screen renders. `detail` is reused for
-// three purposes (single log, one combo ingredient, quick-add creation) via
-// `intent` + the optional `combo` accumulator — see handleConfirm below.
+// Single source of truth for which screen renders. `detail` is reused for two
+// purposes (single log, one combo ingredient) via the optional `combo`
+// accumulator — see handleConfirm below. Saving a quick add is no longer a
+// separate screen; it's an option on the log flow (DetailEditor checkbox).
 type Mode =
   | { kind: 'closed' }
   | { kind: 'browse'; combo?: ConfirmedItem[] }
   | { kind: 'scanning'; combo?: ConfirmedItem[] }
-  | { kind: 'detail'; food: FoodResult; intent: 'log' | 'quick-add'; combo?: ConfirmedItem[] }
+  | { kind: 'detail'; food: FoodResult; combo?: ConfirmedItem[] }
   | { kind: 'combo-review'; items: ConfirmedItem[] }
 
 interface Props {
@@ -71,7 +72,7 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
       const res = await fetch(`/api/barcode?code=${encodeURIComponent(code)}`)
       if (!res.ok) { setBarcodeError('Product not found. Try searching by name.'); return }
       const food: FoodResult = await res.json()
-      setMode({ kind: 'detail', food, intent: 'log', combo })
+      setMode({ kind: 'detail', food, combo })
     } catch {
       setBarcodeError('Could not look up product. Try searching by name.')
     } finally {
@@ -79,26 +80,22 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
     }
   }
 
-  async function handleConfirm(item: ConfirmedItem) {
+  async function handleConfirm(item: ConfirmedItem, opts?: { saveAsQuickAdd?: boolean }) {
     if (mode.kind !== 'detail') return
 
-    if (mode.intent === 'quick-add') {
-      setAdding(true)
-      await addQuickAdd({
-        name: item.foodName, quantity: item.quantity, unit: item.unit,
-        calories: item.calories, proteinG: item.proteinG, fatG: item.fatG, carbsG: item.carbsG,
-      })
-      setAdding(false)
-      setMode({ kind: 'browse', combo: mode.combo })
-      return
-    }
-
+    // Building a combo meal — collect the ingredient, don't touch the log yet.
     if (mode.combo) {
       setMode({ kind: 'browse', combo: [...mode.combo, item] })
       return
     }
 
     setAdding(true)
+    if (opts?.saveAsQuickAdd) {
+      await addQuickAdd({
+        name: item.foodName, quantity: item.quantity, unit: item.unit,
+        calories: item.calories, proteinG: item.proteinG, fatG: item.fatG, carbsG: item.carbsG,
+      })
+    }
     await addFoodEntry({
       date, foodName: item.foodName, quantity: item.quantity, unit: item.unit,
       calories: item.calories, proteinG: item.proteinG, fatG: item.fatG, carbsG: item.carbsG,
@@ -163,7 +160,8 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
         onBack={() => setMode({ kind: 'browse', combo: mode.combo })}
         onClose={() => requestClose(mode.combo)}
         onConfirm={handleConfirm}
-        confirmLabel={mode.intent === 'quick-add' ? 'Save Quick Add' : mode.combo ? 'Add Ingredient' : 'Add to Log'}
+        confirmLabel={mode.combo ? 'Add Ingredient' : 'Add to Log'}
+        showQuickAddOption={!mode.combo}
         confirming={adding}
       />
     )
@@ -186,9 +184,8 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
         quickAdds={initialQuickAdds}
         recentFoods={initialRecentFoods}
         combo={combo}
-        onSelectFood={food => setMode({ kind: 'detail', food, intent: 'log', combo })}
+        onSelectFood={food => setMode({ kind: 'detail', food, combo })}
         onScanRequested={() => setMode({ kind: 'scanning', combo })}
-        onNewQuickAdd={() => setMode({ kind: 'detail', food: BLANK_FOOD, intent: 'quick-add', combo })}
         onDeleteQuickAdd={id => deleteQuickAdd(id)}
         onStartCombo={() => setMode({ kind: 'browse', combo: [] })}
         onFinishCombo={() => { if (combo) setMode({ kind: 'combo-review', items: combo }) }}
