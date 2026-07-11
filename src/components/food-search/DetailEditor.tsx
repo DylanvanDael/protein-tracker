@@ -48,6 +48,7 @@ const MACRO_FIELDS = [
 // talks to the DB itself; the caller decides what onConfirm means.
 export default function DetailEditor({ food, onBack, onClose, onConfirm, confirmLabel, confirming }: Props) {
   const sz = food.servingSize || 100
+  const unit = food.servingSizeUnit || 'g'
   const [customName, setCustomName] = useState(food.description)
   const [servings, setServings] = useState(1)
   const [customGrams, setCustomGrams] = useState(String(sz))
@@ -102,67 +103,81 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
           {food.brandOwner && <p className="text-[13px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>}
         </div>
 
-        {!useCustomGrams ? (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[14px] font-medium text-[#6C6C70]">Servings</span>
-              <span className="text-[12px] text-[#8E8E93]">1 serving = {food.servingSize}{food.servingSizeUnit}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => { const n = Math.max(0.5, parseFloat((servings - 0.5).toFixed(1))); setServings(n); applyGrams(n * sz) }}
-                className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
-              >
-                <Minus size={16} strokeWidth={2.5} />
-              </button>
-              <div className="flex-1 text-center">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={servings}
-                  onChange={e => {
-                    const v = sanitizeDecimalInput(e.target.value)
-                    const n = parseDecimal(v, -1)
-                    if (n > 0) { setServings(n); applyGrams(n * sz) }
-                  }}
-                  className="w-full text-center text-[28px] font-bold text-[#1C1C1E] bg-transparent outline-none focus:bg-[#F2F2F7] rounded-xl transition-colors"
-                />
-                <p className="text-[12px] text-[#8E8E93] mt-0.5">= {Math.round(totalGrams)}{food.servingSizeUnit}</p>
-              </div>
-              <button
-                onClick={() => { const n = parseFloat((servings + 0.5).toFixed(1)); setServings(n); applyGrams(n * sz) }}
-                className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
-              >
-                <Plus size={16} strokeWidth={2.5} />
-              </button>
-            </div>
+        <div className="space-y-3">
+          {/* Amount mode — a proper segmented control, not a tiny text link */}
+          <div className="flex p-1 bg-[#F2F2F7] rounded-2xl">
+            <button
+              onClick={() => { setUseCustomGrams(false); applyGrams(servings * sz) }}
+              className={`flex-1 py-2 rounded-xl text-[14px] font-semibold transition-colors ${
+                !useCustomGrams ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93]'
+              }`}
+            >
+              Servings
+            </button>
             <button
               onClick={() => { setUseCustomGrams(true); setCustomGrams(String(Math.round(totalGrams))) }}
-              className="text-[12px] text-[#007AFF]"
+              className={`flex-1 py-2 rounded-xl text-[14px] font-semibold transition-colors ${
+                useCustomGrams ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93]'
+              }`}
             >
-              Enter custom amount in grams
+              Amount ({unit})
             </button>
           </div>
-        ) : (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[14px] font-medium text-[#6C6C70]">Amount (g)</span>
-              <button onClick={() => { setUseCustomGrams(false); applyGrams(servings * sz) }} className="text-[12px] text-[#007AFF]">Use servings</button>
+
+          {!useCustomGrams ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { const n = Math.max(0.5, parseFloat((servings - 0.5).toFixed(1))); setServings(n); applyGrams(n * sz) }}
+                  className="w-12 h-12 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
+                  aria-label="Decrease servings"
+                >
+                  <Minus size={18} strokeWidth={2.5} />
+                </button>
+                <div className="flex-1 text-center">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={servings}
+                    onChange={e => {
+                      const v = sanitizeDecimalInput(e.target.value)
+                      const n = parseDecimal(v, -1)
+                      if (n > 0) { setServings(n); applyGrams(n * sz) }
+                    }}
+                    className="w-full text-center text-[30px] font-bold text-[#1C1C1E] bg-transparent outline-none focus:bg-[#F2F2F7] rounded-xl transition-colors"
+                  />
+                  <p className="text-[12px] text-[#8E8E93] mt-0.5">
+                    {servings === 1 ? '1 serving' : `${servings} servings`} · {Math.round(totalGrams)}{unit}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { const n = parseFloat((servings + 0.5).toFixed(1)); setServings(n); applyGrams(n * sz) }}
+                  className="w-12 h-12 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
+                  aria-label="Increase servings"
+                >
+                  <Plus size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+              <p className="text-[12px] text-[#8E8E93] text-center">1 serving = {food.servingSize}{unit}</p>
             </div>
-            <input
-              autoFocus
-              type="text"
-              inputMode="decimal"
-              value={customGrams}
-              onChange={e => {
-                const v = sanitizeDecimalInput(e.target.value)
-                setCustomGrams(v)
-                applyGrams(parseDecimal(v))
-              }}
-              className="w-full text-right text-[22px] font-bold text-[#1C1C1E] bg-[#F2F2F7] rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
-            />
-          </div>
-        )}
+          ) : (
+            <div className="relative">
+              <input
+                autoFocus
+                type="text"
+                inputMode="decimal"
+                value={customGrams}
+                onChange={e => {
+                  const v = sanitizeDecimalInput(e.target.value)
+                  setCustomGrams(v)
+                  applyGrams(parseDecimal(v))
+                }}
+                className="w-full text-center text-[30px] font-bold text-[#1C1C1E] bg-[#F2F2F7] rounded-2xl px-4 py-3 pr-14 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+              />
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[16px] font-medium text-[#8E8E93] pointer-events-none">{unit}</span>
+            </div>
+          )}
+        </div>
 
         {ratio > 0 && (
           <div className="bg-[#F2F2F7] rounded-2xl px-3 py-3">

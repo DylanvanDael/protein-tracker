@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, X, Scan, Camera, PenLine } from 'lucide-react'
+import { Search, X, Barcode, Camera, PenLine } from 'lucide-react'
 import { prepareImageForOcr, nutritionScore, parseNutritionLabel } from '@/lib/ocr'
 import type { FoodResult } from './types'
 
@@ -11,9 +11,13 @@ interface Props {
   barcodeLoading?: boolean
   barcodeError?: string
   onDismissBarcodeError?: () => void
+  // Rendered below the header when the field is empty — the "home" content
+  // (quick adds + recents). Search is always reachable from the header, so
+  // these no longer live behind a separate tab.
+  children?: React.ReactNode
 }
 
-export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoading, barcodeError, onDismissBarcodeError }: Props) {
+export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoading, barcodeError, onDismissBarcodeError, children }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -118,42 +122,52 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
     })
   }
 
-  const showUploadZone = query.length === 0 && !photoLoading && !barcodeLoading && results.length === 0
+  const hasQuery = query.trim().length >= 2
+  // The "home" view: no active search, nothing processing. Quick adds, recents
+  // and the scan/create shortcuts live here.
+  const idle = !hasQuery && !photoLoading && !barcodeLoading
 
   return (
     <div>
-      {/* Search bar */}
-      <div className="flex items-center gap-2 px-4 py-3">
-        <Search size={16} className="text-[#8E8E93] shrink-0" />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search food..."
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          className="flex-1 text-[16px] text-[#1C1C1E] placeholder:text-[#C7C7CC] outline-none bg-transparent"
-        />
+      {/* Persistent search header — search field plus barcode and label-photo
+          shortcuts are always reachable, whatever is shown below. */}
+      <div className="px-3 pt-3 pb-2.5 flex items-center gap-2">
+        <div className="flex-1 flex items-center gap-2 bg-[#F2F2F7] rounded-full px-3.5 h-11">
+          <Search size={17} className="text-[#8E8E93] shrink-0" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search foods"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            className="flex-1 min-w-0 text-[16px] text-[#1C1C1E] placeholder:text-[#8E8E93] outline-none bg-transparent"
+          />
+          {query.length > 0 && (
+            <button onClick={() => { setQuery(''); setResults([]); setSearchError(false) }} className="text-[#8E8E93] active:opacity-60 shrink-0">
+              <X size={17} />
+            </button>
+          )}
+        </div>
         <button
           onClick={onScanRequested}
-          className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7] transition-colors"
+          className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#007AFF] active:opacity-60 transition-opacity shrink-0"
           title="Scan barcode"
+          aria-label="Scan barcode"
         >
-          <Scan size={18} />
+          <Barcode size={20} />
         </button>
-        {/* Camera button: visible when typing (no upload zone visible) */}
-        {query.length > 0 && (
-          <button
-            onClick={() => photoInputRef.current?.click()}
-            disabled={photoLoading}
-            className="p-1.5 rounded-full text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#F2F2F7] transition-colors disabled:opacity-40"
-            title="Scan nutrition label"
-          >
-            <Camera size={18} />
-          </button>
-        )}
+        <button
+          onClick={() => photoInputRef.current?.click()}
+          disabled={photoLoading}
+          className="w-11 h-11 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#007AFF] active:opacity-60 transition-opacity disabled:opacity-40 shrink-0"
+          title="Scan nutrition label"
+          aria-label="Scan nutrition label"
+        >
+          <Camera size={20} />
+        </button>
         <input
           ref={photoInputRef}
           type="file"
@@ -161,55 +175,9 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
           className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handlePhoto(f) }}
         />
-        {query.length > 0 && (
-          <button onClick={() => { setQuery(''); setResults([]); setSearchError(false) }} className="text-[#8E8E93] hover:text-[#1C1C1E] transition-colors">
-            <X size={18} />
-          </button>
-        )}
       </div>
 
-      {/* Add from scratch — always visible in empty state */}
-      {showUploadZone && (
-        <div className="mx-3 mb-2">
-          <button
-            onClick={addFromScratch}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-[#E5E5EA] text-[#007AFF] text-[13px] font-medium hover:bg-[#F2F2F7] active:opacity-70 transition-colors"
-          >
-            <PenLine size={14} />
-            Add custom food
-          </button>
-        </div>
-      )}
-
-      {/* Upload zone — tap, drag & drop, or paste */}
-      {showUploadZone && (
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label="Upload nutrition label photo"
-          onClick={() => photoInputRef.current?.click()}
-          onKeyDown={e => e.key === 'Enter' && photoInputRef.current?.click()}
-          onDragOver={e => { e.preventDefault(); setZoneDragOver(true) }}
-          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setZoneDragOver(false) }}
-          onDrop={e => {
-            e.preventDefault()
-            setZoneDragOver(false)
-            const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'))
-            if (file) handlePhoto(file)
-          }}
-          className={`mx-3 mb-3 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 py-6 cursor-pointer select-none transition-colors ${
-            zoneDragOver ? 'border-[#007AFF] bg-[#EBF4FF]' : 'border-[#D1D1D6] active:bg-[#F2F2F7]'
-          }`}
-        >
-          <Camera size={22} className={zoneDragOver ? 'text-[#007AFF]' : 'text-[#8E8E93]'} />
-          <p className={`text-[13px] font-medium ${zoneDragOver ? 'text-[#007AFF]' : 'text-[#8E8E93]'}`}>
-            {zoneDragOver ? 'Drop to scan' : 'Tap to scan a nutrition label'}
-          </p>
-          <p className="text-[11px] text-[#C7C7CC]">or drag & drop · paste from clipboard</p>
-        </div>
-      )}
-
-      {/* Photo loading */}
+      {/* Transient status / error strips */}
       {photoLoading && (
         <div className="mx-3 mb-3 rounded-2xl border-2 border-dashed border-[#007AFF] bg-[#EBF4FF] flex flex-col items-center justify-center gap-1.5 py-6">
           <Camera size={22} className="text-[#007AFF] animate-pulse" />
@@ -237,6 +205,47 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
         </div>
       )}
 
+      {/* Idle "home": scan-label drop zone, create-custom, then quick adds + recents */}
+      {idle && (
+        <>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Scan a nutrition label"
+            onClick={() => photoInputRef.current?.click()}
+            onKeyDown={e => e.key === 'Enter' && photoInputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); setZoneDragOver(true) }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setZoneDragOver(false) }}
+            onDrop={e => {
+              e.preventDefault()
+              setZoneDragOver(false)
+              const file = Array.from(e.dataTransfer.files).find(f => f.type.startsWith('image/'))
+              if (file) handlePhoto(file)
+            }}
+            className={`mx-3 mb-2 rounded-2xl border-2 border-dashed flex items-center justify-center gap-2 py-3.5 cursor-pointer select-none transition-colors ${
+              zoneDragOver ? 'border-[#007AFF] bg-[#EBF4FF]' : 'border-[#D1D1D6] active:bg-[#F2F2F7]'
+            }`}
+          >
+            <Camera size={18} className={zoneDragOver ? 'text-[#007AFF]' : 'text-[#8E8E93]'} />
+            <p className={`text-[13px] font-medium ${zoneDragOver ? 'text-[#007AFF]' : 'text-[#6C6C70]'}`}>
+              {zoneDragOver ? 'Drop to scan' : 'Scan a nutrition label'}
+            </p>
+          </div>
+
+          <div className="mx-3 mb-1">
+            <button
+              onClick={addFromScratch}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-[#E5E5EA] text-[#007AFF] text-[13px] font-medium hover:bg-[#F2F2F7] active:opacity-70 transition-colors"
+            >
+              <PenLine size={14} />
+              Add custom food
+            </button>
+          </div>
+
+          {children}
+        </>
+      )}
+
       {loading && (
         <div className="px-4 pb-3 text-[13px] text-[#8E8E93] border-t border-[#F2F2F7] pt-3">
           Searching...
@@ -262,7 +271,7 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
         </ul>
       )}
 
-      {!loading && !barcodeLoading && searchError && query.trim().length >= 2 && (
+      {!loading && !barcodeLoading && searchError && hasQuery && (
         <div className="px-4 py-4 border-t border-[#F2F2F7] space-y-3">
           <p className="text-[14px] text-[#8E8E93] text-center">Search is temporarily unavailable.</p>
           <button
@@ -274,15 +283,14 @@ export default function SearchPanel({ onSelectFood, onScanRequested, barcodeLoad
         </div>
       )}
 
-      {!loading && !barcodeLoading && !searchError && query.trim().length >= 2 && results.length === 0 && (
+      {!loading && !barcodeLoading && !searchError && hasQuery && results.length === 0 && (
         <div className="px-4 py-4 border-t border-[#F2F2F7] space-y-3">
-          <p className="text-[14px] text-[#8E8E93] text-center">No results for &ldquo;{query}&rdquo;</p>
+          <p className="text-[14px] text-[#8E8E93] text-center">No results for &ldquo;{query.trim()}&rdquo;</p>
           <button
             onClick={addFromScratch}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-[#E5E5EA] text-[#007AFF] text-[13px] font-medium hover:bg-[#F2F2F7] active:opacity-70 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#007AFF] text-white text-[14px] font-semibold active:opacity-80 transition-opacity"
           >
-            <PenLine size={14} />
-            Add &ldquo;{query}&rdquo; as custom food
+            Add &ldquo;{query.trim()}&rdquo; as custom food
           </button>
         </div>
       )}
