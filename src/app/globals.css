@@ -1,7 +1,80 @@
 @import "tailwindcss";
 
+/* Semantic color tokens. Light values match the original iOS-style palette;
+   dark values follow iOS system dark (elevated surfaces on a black canvas).
+   Components reference these via bg-[var(--fill)], text-[var(--ink)], etc., so
+   a single set of values here drives the whole app in both themes. */
 :root {
   color-scheme: light;
+  --canvas: #F2F2F7;
+  --card: #FFFFFF;
+  --elevated: #FFFFFF;
+  --fill: #F2F2F7;
+  --fill-hover: #F9F9F9;
+  --hairline: #F2F2F7;
+  --border: #E5E5EA;
+  --border-strong: #D1D1D6;
+  --ink: #1C1C1E;
+  --muted: #8E8E93;
+  --muted-strong: #6C6C70;
+  --faint: #C7C7CC;
+  --accent: #007AFF;
+  --accent-tint: #EBF4FF;
+  --danger: #FF453A;
+  --danger-tint: #FFF0F0;
+  --green: #34C759;
+  --green-tint: #F0FFF4;
+  --orange: #FF9F0A;
+}
+
+/* Dark values, shared by the explicit toggle and the system preference. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #000000;
+  --card: #1C1C1E;
+  --elevated: #3A3A3C;
+  --fill: #2C2C2E;
+  --fill-hover: #3A3A3C;
+  --hairline: #2C2C2E;
+  --border: #38383A;
+  --border-strong: #48484A;
+  --ink: #FFFFFF;
+  --muted: #98989F;
+  --muted-strong: #AEAEB2;
+  --faint: #5B5B5F;
+  --accent: #0A84FF;
+  --accent-tint: #14344E;
+  --danger: #FF453A;
+  --danger-tint: #3A2020;
+  --green: #30D158;
+  --green-tint: #14311F;
+  --orange: #FF9F0A;
+}
+
+/* Follow the OS when the user hasn't explicitly picked a theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --canvas: #000000;
+    --card: #1C1C1E;
+    --elevated: #3A3A3C;
+    --fill: #2C2C2E;
+    --fill-hover: #3A3A3C;
+    --hairline: #2C2C2E;
+    --border: #38383A;
+    --border-strong: #48484A;
+    --ink: #FFFFFF;
+    --muted: #98989F;
+    --muted-strong: #AEAEB2;
+    --faint: #5B5B5F;
+    --accent: #0A84FF;
+    --accent-tint: #14344E;
+    --danger: #FF453A;
+    --danger-tint: #3A2020;
+    --green: #30D158;
+    --green-tint: #14311F;
+    --orange: #FF9F0A;
+  }
 }
 
 * {
@@ -10,7 +83,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
-  background-color: #F2F2F7;
-  color: #1C1C1E;
+  background-color: var(--canvas);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }

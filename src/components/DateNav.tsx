@@ -39,20 +39,20 @@ export default function DateNav({ date }: { date: string }) {
     <div className="flex items-center justify-between">
       <button
         onClick={() => go(offset(date, -1))}
-        className="p-2 rounded-full hover:bg-[#E5E5EA] transition-colors text-[#1C1C1E]"
+        className="p-2 rounded-full hover:bg-[var(--border)] transition-colors text-[var(--ink)]"
       >
         <ChevronLeft size={20} />
       </button>
       <button
         onClick={() => go(todayStr)}
-        className="text-[17px] font-semibold text-[#1C1C1E] hover:text-[#007AFF] transition-colors"
+        className="text-[17px] font-semibold text-[var(--ink)] hover:text-[var(--accent)] transition-colors"
       >
         {formatDisplay(date)}
       </button>
       <button
         onClick={() => go(offset(date, 1))}
         disabled={isFuture}
-        className="p-2 rounded-full hover:bg-[#E5E5EA] transition-colors text-[#1C1C1E] disabled:opacity-30"
+        className="p-2 rounded-full hover:bg-[var(--border)] transition-colors text-[var(--ink)] disabled:opacity-30"
       >
         <ChevronRight size={20} />
       </button>

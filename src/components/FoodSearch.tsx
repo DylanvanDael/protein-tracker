@@ -133,7 +133,7 @@ export default function FoodSearch({ date, initialQuickAdds, initialRecentFoods 
     return (
       <button
         onClick={() => setMode({ kind: 'browse' })}
-        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[#007AFF] text-white font-semibold text-[15px] active:opacity-80 transition-opacity shadow-sm"
+        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-[var(--accent)] text-white font-semibold text-[15px] active:opacity-80 transition-opacity shadow-sm"
       >
         <Plus size={18} strokeWidth={2.5} />
         Add Food

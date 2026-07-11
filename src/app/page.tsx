@@ -5,6 +5,7 @@ import FoodSearch from '@/components/FoodSearch'
 import EntryRow from '@/components/EntryRow'
 import DateNav from '@/components/DateNav'
 import GoalSettings from '@/components/GoalSettings'
+import ThemeToggle from '@/components/ThemeToggle'
 
 function todayString() {
   const d = new Date()
@@ -43,13 +44,16 @@ export default async function Home({ searchParams }: PageProps) {
   )
 
   return (
-    <main className="min-h-screen bg-[#F2F2F7]">
+    <main className="min-h-screen bg-[var(--canvas)]">
       <div className="max-w-md mx-auto px-4 pt-12 pb-24 space-y-5">
 
         {/* Header */}
         <div className="space-y-1">
-          <h1 className="text-[28px] font-bold text-[#1C1C1E] tracking-tight">Nutrition</h1>
-          <Suspense fallback={<div className="text-[17px] font-semibold text-[#1C1C1E]">Today</div>}>
+          <div className="flex items-start justify-between">
+            <h1 className="text-[28px] font-bold text-[var(--ink)] tracking-tight">Nutrition</h1>
+            <ThemeToggle />
+          </div>
+          <Suspense fallback={<div className="text-[17px] font-semibold text-[var(--ink)]">Today</div>}>
             <DateNav date={date} />
           </Suspense>
         </div>
@@ -60,27 +64,27 @@ export default async function Home({ searchParams }: PageProps) {
           const calOver = calDiff > 0
           const pct = Math.min((totals.calories / GOALS.calories) * 100, 100)
           return (
-            <div className="bg-white rounded-3xl px-5 py-5 shadow-sm border border-[#E5E5EA]">
+            <div className="bg-[var(--card)] rounded-3xl px-5 py-5 shadow-sm border border-[var(--border)]">
               <div className="flex items-end justify-between mb-4">
                 <div>
-                  <p className="text-[13px] font-medium text-[#8E8E93] uppercase tracking-wide">Calories</p>
-                  <p className="text-[36px] font-bold text-[#1C1C1E] leading-none mt-1">
+                  <p className="text-[13px] font-medium text-[var(--muted)] uppercase tracking-wide">Calories</p>
+                  <p className="text-[36px] font-bold text-[var(--ink)] leading-none mt-1">
                     {Math.round(totals.calories)}
                   </p>
-                  <p className="text-[13px] text-[#8E8E93] mt-1">of {Math.round(GOALS.calories)} kcal goal</p>
+                  <p className="text-[13px] text-[var(--muted)] mt-1">of {Math.round(GOALS.calories)} kcal goal</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[13px] text-[#8E8E93]">
+                  <p className="text-[13px] text-[var(--muted)]">
                     {calOver ? 'Over goal' : 'Remaining'}
                   </p>
-                  <p className="text-[22px] font-semibold text-[#007AFF]">
+                  <p className="text-[22px] font-semibold text-[var(--accent)]">
                     {calOver ? `+${calDiff}` : Math.abs(calDiff)}
                   </p>
                 </div>
               </div>
-              <div className="h-2 bg-[#E5E5EA] rounded-full overflow-hidden">
+              <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#007AFF] rounded-full transition-all duration-500"
+                  className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -89,12 +93,12 @@ export default async function Home({ searchParams }: PageProps) {
         })()}
 
         {/* Macro rings */}
-        <div className="bg-white rounded-3xl px-5 py-5 shadow-sm border border-[#E5E5EA]">
-          <p className="text-[13px] font-medium text-[#8E8E93] uppercase tracking-wide mb-4">Macros</p>
+        <div className="bg-[var(--card)] rounded-3xl px-5 py-5 shadow-sm border border-[var(--border)]">
+          <p className="text-[13px] font-medium text-[var(--muted)] uppercase tracking-wide mb-4">Macros</p>
           <div className="flex justify-around">
-            <MacroRing value={totals.protein} goal={GOALS.protein} color="#34C759" label="Protein" />
-            <MacroRing value={totals.carbs} goal={GOALS.carbs} color="#FF9F0A" label="Carbs" />
-            <MacroRing value={totals.fat} goal={GOALS.fat} color="#FF453A" label="Fat" />
+            <MacroRing value={totals.protein} goal={GOALS.protein} color="var(--green)" label="Protein" />
+            <MacroRing value={totals.carbs} goal={GOALS.carbs} color="var(--orange)" label="Carbs" />
+            <MacroRing value={totals.fat} goal={GOALS.fat} color="var(--danger)" label="Fat" />
           </div>
           {(() => {
             const diff = {
@@ -103,18 +107,18 @@ export default async function Home({ searchParams }: PageProps) {
               fat:     Math.round(totals.fat      - GOALS.fat),
             }
             const macros = [
-              { key: 'protein', label: 'P', color: '#34C759' },
-              { key: 'carbs',   label: 'C', color: '#FF9F0A' },
-              { key: 'fat',     label: 'F', color: '#FF453A' },
+              { key: 'protein', label: 'P', color: 'var(--green)' },
+              { key: 'carbs',   label: 'C', color: 'var(--orange)' },
+              { key: 'fat',     label: 'F', color: 'var(--danger)' },
             ] as const
             return (
-              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-[#F2F2F7]">
+              <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-[var(--hairline)]">
                 {[
                   { label: 'Goal',  protein: GOALS.protein,   carbs: GOALS.carbs,   fat: GOALS.fat },
                   { label: 'Eaten', protein: totals.protein,  carbs: totals.carbs,  fat: totals.fat },
                 ].map(row => (
                   <div key={row.label} className="text-center">
-                    <p className="text-[11px] text-[#8E8E93] font-medium mb-1">{row.label}</p>
+                    <p className="text-[11px] text-[var(--muted)] font-medium mb-1">{row.label}</p>
                     {macros.map(m => (
                       <p key={m.key} className="text-[12px] font-semibold" style={{ color: m.color }}>
                         {Math.round(row[m.key])}g {m.label}
@@ -123,7 +127,7 @@ export default async function Home({ searchParams }: PageProps) {
                   </div>
                 ))}
                 <div className="text-center">
-                  <p className="text-[11px] text-[#8E8E93] font-medium mb-1">
+                  <p className="text-[11px] text-[var(--muted)] font-medium mb-1">
                     {Object.values(diff).some(d => d > 0) ? 'Over' : 'Left'}
                   </p>
                   {macros.map(m => {
@@ -142,25 +146,25 @@ export default async function Home({ searchParams }: PageProps) {
         </div>
 
         {/* Food log */}
-        <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
+        <div className="bg-[var(--card)] rounded-3xl shadow-sm border border-[var(--border)] overflow-hidden">
           <div className="px-5 pt-5 pb-2">
-            <p className="text-[13px] font-medium text-[#8E8E93] uppercase tracking-wide">Food Log</p>
+            <p className="text-[13px] font-medium text-[var(--muted)] uppercase tracking-wide">Food Log</p>
           </div>
           {entries.length === 0 ? (
             <div className="px-5 pb-5 pt-2">
-              <p className="text-[14px] text-[#C7C7CC] text-center py-4">No food logged yet</p>
+              <p className="text-[14px] text-[var(--faint)] text-center py-4">No food logged yet</p>
             </div>
           ) : (
-            <div className="px-5 divide-y divide-[#F2F2F7]">
+            <div className="px-5 divide-y divide-[var(--hairline)]">
               {entries.map(entry => (
                 <EntryRow key={entry.id} entry={entry} />
               ))}
             </div>
           )}
           {entries.length > 0 && (
-            <div className="mx-5 mb-5 mt-3 pt-3 border-t border-[#E5E5EA] flex justify-between items-center">
-              <span className="text-[13px] text-[#8E8E93] font-medium">{entries.length} items</span>
-              <span className="text-[13px] font-semibold text-[#1C1C1E]">{Math.round(totals.calories)} kcal total</span>
+            <div className="mx-5 mb-5 mt-3 pt-3 border-t border-[var(--border)] flex justify-between items-center">
+              <span className="text-[13px] text-[var(--muted)] font-medium">{entries.length} items</span>
+              <span className="text-[13px] font-semibold text-[var(--ink)]">{Math.round(totals.calories)} kcal total</span>
             </div>
           )}
         </div>

@@ -82,14 +82,14 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
   }
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-[#E5E5EA] overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#F2F2F7]">
-        <button onClick={onBack} className="text-[#007AFF] flex items-center gap-0.5 -ml-1">
+    <div className="bg-[var(--card)] rounded-3xl shadow-sm border border-[var(--border)] overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--hairline)]">
+        <button onClick={onBack} className="text-[var(--accent)] flex items-center gap-0.5 -ml-1">
           <ChevronLeft size={20} strokeWidth={2} />
           <span className="text-[15px]">Back</span>
         </button>
         <div className="flex-1" />
-        <button onClick={onClose} className="text-[#8E8E93]"><X size={18} /></button>
+        <button onClick={onClose} className="text-[var(--muted)]"><X size={18} /></button>
       </div>
 
       <div className="px-4 py-4 space-y-4">
@@ -101,19 +101,19 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            className="text-[16px] font-semibold text-[#1C1C1E] w-full bg-transparent outline-none border-b border-transparent focus:border-[#007AFF] pb-0.5 transition-colors"
+            className="text-[16px] font-semibold text-[var(--ink)] w-full bg-transparent outline-none border-b border-transparent focus:border-[var(--accent)] pb-0.5 transition-colors"
             placeholder="Product name"
           />
-          {food.brandOwner && <p className="text-[13px] text-[#8E8E93] mt-0.5">{food.brandOwner}</p>}
+          {food.brandOwner && <p className="text-[13px] text-[var(--muted)] mt-0.5">{food.brandOwner}</p>}
         </div>
 
         <div className="space-y-3">
           {/* Amount mode — a proper segmented control, not a tiny text link */}
-          <div className="flex p-1 bg-[#F2F2F7] rounded-2xl">
+          <div className="flex p-1 bg-[var(--fill)] rounded-2xl">
             <button
               onClick={() => { setUseCustomGrams(false); applyGrams(servings * sz) }}
               className={`flex-1 py-2 rounded-xl text-[14px] font-semibold transition-colors ${
-                !useCustomGrams ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93]'
+                !useCustomGrams ? 'bg-[var(--elevated)] text-[var(--ink)] shadow-sm' : 'text-[var(--muted)]'
               }`}
             >
               Servings
@@ -121,7 +121,7 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
             <button
               onClick={() => { setUseCustomGrams(true); setCustomGrams(String(Math.round(totalGrams))) }}
               className={`flex-1 py-2 rounded-xl text-[14px] font-semibold transition-colors ${
-                useCustomGrams ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93]'
+                useCustomGrams ? 'bg-[var(--elevated)] text-[var(--ink)] shadow-sm' : 'text-[var(--muted)]'
               }`}
             >
               Amount ({unit})
@@ -133,7 +133,7 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => { const n = Math.max(0.5, parseFloat((servings - 0.5).toFixed(1))); setServings(n); applyGrams(n * sz) }}
-                  className="w-12 h-12 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
+                  className="w-12 h-12 rounded-full bg-[var(--fill)] flex items-center justify-center text-[var(--ink)] active:opacity-60 transition-opacity"
                   aria-label="Decrease servings"
                 >
                   <Minus size={18} strokeWidth={2.5} />
@@ -148,21 +148,21 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
                       const n = parseDecimal(v, -1)
                       if (n > 0) { setServings(n); applyGrams(n * sz) }
                     }}
-                    className="w-full text-center text-[30px] font-bold text-[#1C1C1E] bg-transparent outline-none focus:bg-[#F2F2F7] rounded-xl transition-colors"
+                    className="w-full text-center text-[30px] font-bold text-[var(--ink)] bg-transparent outline-none focus:bg-[var(--fill)] rounded-xl transition-colors"
                   />
-                  <p className="text-[12px] text-[#8E8E93] mt-0.5">
+                  <p className="text-[12px] text-[var(--muted)] mt-0.5">
                     {servings === 1 ? '1 serving' : `${servings} servings`} · {Math.round(totalGrams)}{unit}
                   </p>
                 </div>
                 <button
                   onClick={() => { const n = parseFloat((servings + 0.5).toFixed(1)); setServings(n); applyGrams(n * sz) }}
-                  className="w-12 h-12 rounded-full bg-[#F2F2F7] flex items-center justify-center text-[#1C1C1E] active:opacity-60 transition-opacity"
+                  className="w-12 h-12 rounded-full bg-[var(--fill)] flex items-center justify-center text-[var(--ink)] active:opacity-60 transition-opacity"
                   aria-label="Increase servings"
                 >
                   <Plus size={18} strokeWidth={2.5} />
                 </button>
               </div>
-              <p className="text-[12px] text-[#8E8E93] text-center">1 serving = {food.servingSize}{unit}</p>
+              <p className="text-[12px] text-[var(--muted)] text-center">1 serving = {food.servingSize}{unit}</p>
             </div>
           ) : (
             <div className="relative">
@@ -176,16 +176,16 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
                   setCustomGrams(v)
                   applyGrams(parseDecimal(v))
                 }}
-                className="w-full text-center text-[30px] font-bold text-[#1C1C1E] bg-[#F2F2F7] rounded-2xl px-4 py-3 pr-14 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+                className="w-full text-center text-[30px] font-bold text-[var(--ink)] bg-[var(--fill)] rounded-2xl px-4 py-3 pr-14 outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
               />
-              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[16px] font-medium text-[#8E8E93] pointer-events-none">{unit}</span>
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[16px] font-medium text-[var(--muted)] pointer-events-none">{unit}</span>
             </div>
           )}
         </div>
 
         {ratio > 0 && (
-          <div className="bg-[#F2F2F7] rounded-2xl px-3 py-3">
-            <p className="text-[10px] font-medium text-[#8E8E93] uppercase tracking-wide mb-2 text-center">Tap to edit</p>
+          <div className="bg-[var(--fill)] rounded-2xl px-3 py-3">
+            <p className="text-[10px] font-medium text-[var(--muted)] uppercase tracking-wide mb-2 text-center">Tap to edit</p>
             <div className="grid grid-cols-4 gap-2">
               {MACRO_FIELDS.map(m => (
                 <div key={m.key} className="flex flex-col items-center gap-0.5">
@@ -202,10 +202,10 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
                       const v = parseDecimal(e.target.value)
                       setMacrosPerGram(prev => ({ ...prev, [m.key]: v / totalGrams }))
                     }}
-                    className="w-full text-center text-[16px] font-semibold text-[#1C1C1E] bg-white rounded-xl px-1 py-1.5 outline-none focus:ring-2 focus:ring-[#007AFF]/40 min-w-0"
+                    className="w-full text-center text-[16px] font-semibold text-[var(--ink)] bg-[var(--elevated)] rounded-xl px-1 py-1.5 outline-none focus:ring-2 focus:ring-[var(--accent)]/40 min-w-0"
                   />
-                  <span className="text-[10px] text-[#8E8E93]">{m.unit}</span>
-                  <span className="text-[10px] text-[#8E8E93]">{m.label}</span>
+                  <span className="text-[10px] text-[var(--muted)]">{m.unit}</span>
+                  <span className="text-[10px] text-[var(--muted)]">{m.label}</span>
                 </div>
               ))}
             </div>
@@ -217,15 +217,15 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
             type="button"
             onClick={() => setSaveAsQuickAdd(v => !v)}
             aria-pressed={saveAsQuickAdd}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[#F2F2F7] active:opacity-70 transition-opacity"
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[var(--fill)] active:opacity-70 transition-opacity"
           >
             <span className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 transition-colors ${
-              saveAsQuickAdd ? 'bg-[#007AFF]' : 'bg-white border border-[#C7C7CC]'
+              saveAsQuickAdd ? 'bg-[var(--accent)]' : 'bg-[var(--elevated)] border border-[var(--faint)]'
             }`}>
               {saveAsQuickAdd && <Check size={13} strokeWidth={3} className="text-white" />}
             </span>
-            <span className="flex items-center gap-1.5 text-[14px] font-medium text-[#1C1C1E]">
-              <Bookmark size={14} className="text-[#8E8E93]" />
+            <span className="flex items-center gap-1.5 text-[14px] font-medium text-[var(--ink)]">
+              <Bookmark size={14} className="text-[var(--muted)]" />
               Also save as a quick add
             </span>
           </button>
@@ -234,7 +234,7 @@ export default function DetailEditor({ food, onBack, onClose, onConfirm, confirm
         <button
           onClick={handleConfirm}
           disabled={confirming || ratio <= 0}
-          className="w-full py-3 rounded-2xl bg-[#007AFF] text-white font-semibold text-[15px] active:opacity-80 transition-opacity disabled:opacity-40"
+          className="w-full py-3 rounded-2xl bg-[var(--accent)] text-white font-semibold text-[15px] active:opacity-80 transition-opacity disabled:opacity-40"
         >
           {confirming ? 'Adding...' : confirmLabel}
         </button>

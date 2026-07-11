@@ -92,35 +92,35 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              className="text-[16px] font-medium text-[#1C1C1E] w-full bg-[#F2F2F7] rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-[#007AFF]/40"
+              className="text-[16px] font-medium text-[var(--ink)] w-full bg-[var(--fill)] rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
             />
           ) : (
             <button onClick={startEditName} className="text-left w-full group flex items-center gap-1.5">
-              <p className="text-[14px] font-medium text-[#1C1C1E] truncate">{entry.foodName}</p>
-              <Pencil size={11} className="text-[#C7C7CC] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <p className="text-[14px] font-medium text-[var(--ink)] truncate">{entry.foodName}</p>
+              <Pencil size={11} className="text-[var(--faint)] shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           )}
-          <p className="text-[12px] text-[#8E8E93] mt-0.5">
+          <p className="text-[12px] text-[var(--muted)] mt-0.5">
             {entry.quantity}{entry.unit} · {Math.round(entry.calories)} kcal
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
             <div className="flex gap-3">
-              <span className="text-[12px] text-[#34C759] font-medium">{Math.round(entry.proteinG)}g P</span>
-              <span className="text-[12px] text-[#FF9F0A] font-medium">{Math.round(entry.carbsG)}g C</span>
-              <span className="text-[12px] text-[#FF453A] font-medium">{Math.round(entry.fatG)}g F</span>
+              <span className="text-[12px] text-[var(--green)] font-medium">{Math.round(entry.proteinG)}g P</span>
+              <span className="text-[12px] text-[var(--orange)] font-medium">{Math.round(entry.carbsG)}g C</span>
+              <span className="text-[12px] text-[var(--danger)] font-medium">{Math.round(entry.fatG)}g F</span>
             </div>
           </div>
           {editingName ? (
-            <button onClick={saveName} className="p-1.5 rounded-full text-[#34C759] hover:bg-[#F0FFF4] transition-colors">
+            <button onClick={saveName} className="p-1.5 rounded-full text-[var(--green)] hover:bg-[var(--green-tint)] transition-colors">
               <Check size={14} />
             </button>
           ) : (
             <>
               <button
                 onClick={toggleExpand}
-                className={`p-1.5 rounded-full transition-colors ${expanded ? 'text-[#007AFF] bg-[#EBF4FF]' : 'text-[#C7C7CC] hover:text-[#007AFF] hover:bg-[#F2F2F7]'}`}
+                className={`p-1.5 rounded-full transition-colors ${expanded ? 'text-[var(--accent)] bg-[var(--accent-tint)]' : 'text-[var(--faint)] hover:text-[var(--accent)] hover:bg-[var(--fill)]'}`}
                 title="Edit details"
               >
                 <Pencil size={14} />
@@ -128,7 +128,7 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="p-1.5 rounded-full text-[#C7C7CC] hover:text-[#FF453A] hover:bg-[#FFF0F0] transition-colors"
+                className="p-1.5 rounded-full text-[var(--faint)] hover:text-[var(--danger)] hover:bg-[var(--danger-tint)] transition-colors"
               >
                 <Trash2 size={14} />
               </button>
@@ -138,7 +138,7 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-3 bg-[#FAFAFA] rounded-2xl px-3 py-3 border border-[#F2F2F7]">
+        <div className="mt-3 space-y-3 bg-[var(--fill-hover)] rounded-2xl px-3 py-3 border border-[var(--hairline)]">
           <input
             value={form.foodName}
             onChange={e => setForm(f => ({ ...f, foodName: e.target.value }))}
@@ -147,22 +147,22 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
             autoCapitalize="off"
             spellCheck={false}
             placeholder="Food name"
-            className="text-[16px] font-semibold text-[#1C1C1E] w-full bg-white rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+            className="text-[16px] font-semibold text-[var(--ink)] w-full bg-[var(--elevated)] rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
           />
 
           <div className="flex items-center gap-2">
             <div className="flex-1">
-              <p className="text-[10px] text-[#8E8E93] mb-1">Quantity</p>
+              <p className="text-[10px] text-[var(--muted)] mb-1">Quantity</p>
               <input
                 type="text"
                 inputMode="decimal"
                 value={form.quantity}
                 onChange={e => setForm(f => ({ ...f, quantity: sanitizeDecimalInput(e.target.value) }))}
-                className="w-full text-[16px] font-medium text-[#1C1C1E] bg-white rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+                className="w-full text-[16px] font-medium text-[var(--ink)] bg-[var(--elevated)] rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
               />
             </div>
             <div className="w-16">
-              <p className="text-[10px] text-[#8E8E93] mb-1">Unit</p>
+              <p className="text-[10px] text-[var(--muted)] mb-1">Unit</p>
               <input
                 value={form.unit}
                 onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
@@ -170,7 +170,7 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                className="w-full text-[16px] font-medium text-[#1C1C1E] bg-white rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+                className="w-full text-[16px] font-medium text-[var(--ink)] bg-[var(--elevated)] rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
               />
             </div>
           </div>
@@ -183,10 +183,10 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
                   inputMode="decimal"
                   value={form[m.key]}
                   onChange={e => setForm(f => ({ ...f, [m.key]: sanitizeDecimalInput(e.target.value) }))}
-                  className="w-full text-center text-[16px] font-semibold text-[#1C1C1E] bg-white rounded-xl px-1 py-1.5 outline-none focus:ring-2 focus:ring-[#007AFF]/40 min-w-0"
+                  className="w-full text-center text-[16px] font-semibold text-[var(--ink)] bg-[var(--elevated)] rounded-xl px-1 py-1.5 outline-none focus:ring-2 focus:ring-[var(--accent)]/40 min-w-0"
                 />
-                <span className="text-[10px] text-[#8E8E93]">{m.unit}</span>
-                <span className="text-[10px] text-[#8E8E93]">{m.label}</span>
+                <span className="text-[10px] text-[var(--muted)]">{m.unit}</span>
+                <span className="text-[10px] text-[var(--muted)]">{m.label}</span>
               </div>
             ))}
           </div>
@@ -194,14 +194,14 @@ export default function EntryRow({ entry }: { entry: FoodEntry }) {
           <div className="flex items-center justify-end gap-2 pt-1">
             <button
               onClick={() => setExpanded(false)}
-              className="flex items-center gap-1 text-[13px] font-medium text-[#8E8E93] px-3 py-1.5 rounded-full hover:bg-[#F2F2F7] transition-colors"
+              className="flex items-center gap-1 text-[13px] font-medium text-[var(--muted)] px-3 py-1.5 rounded-full hover:bg-[var(--fill)] transition-colors"
             >
               <X size={13} /> Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-1 text-[13px] font-semibold text-white bg-[#007AFF] px-3 py-1.5 rounded-full disabled:opacity-40"
+              className="flex items-center gap-1 text-[13px] font-semibold text-white bg-[var(--accent)] px-3 py-1.5 rounded-full disabled:opacity-40"
             >
               <Check size={13} /> {saving ? 'Saving...' : 'Save'}
             </button>
