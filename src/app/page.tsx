@@ -6,6 +6,7 @@ import EntryRow from '@/components/EntryRow'
 import DateNav from '@/components/DateNav'
 import GoalSettings from '@/components/GoalSettings'
 import ThemeToggle from '@/components/ThemeToggle'
+import Calculator from '@/components/Calculator'
 
 function todayString() {
   const d = new Date()
@@ -176,6 +177,9 @@ export default async function Home({ searchParams }: PageProps) {
 
         {/* Goal settings */}
         <GoalSettings initialGoals={goalRow} />
+
+        {/* Calculator */}
+        <Calculator />
 
       </div>
     </main>
